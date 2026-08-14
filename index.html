@@ -183,7 +183,7 @@ function drawSchematic(){
       // DrillWise v1.8 liner hanger attached patch applied
       // Hanger boxes sit at the liner top, attached just outside the liner wall, and remain inside the previous casing.
       let annGap=Math.max(0, outer-hp);
-      let outerClear=8;
+      let outerClear=2;
       let linerClear=3;
       let maxBoxW=Math.max(6, annGap-outerClear-linerClear);
       let boxW=Math.max(6, Math.min(13, maxBoxW));
@@ -199,7 +199,7 @@ function drawSchematic(){
       // Small connector ticks make the boxes read as attached to the liner top without crossing the liner wall.
       let leftTickX=cx-hp-linerClear;
       let rightTickX=cx+hp+linerClear;
-      svg.push(`<rect x="${leftX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="none" stroke="${dark}" stroke-width="1.5"/><line x1="${leftX+boxW}" y1="${ylt-2}" x2="${leftTickX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/><rect x="${rightX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="none" stroke="${dark}" stroke-width="1.5"/><line x1="${rightTickX}" y1="${ylt-2}" x2="${rightX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/>`);
+      svg.push(`<rect x="${leftX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${leftX+boxW}" y1="${ylt-2}" x2="${leftTickX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/><rect x="${rightX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${rightTickX}" y1="${ylt-2}" x2="${rightX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/>`);
       svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',12,dark));
     }
   });
