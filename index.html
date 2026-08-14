@@ -504,7 +504,8 @@ function initNativeTrajectory(rows){
   // (departure) axis, not a generic EW/NS extent - a curved path can wander
   // less than its raw EW/NS bounding box once rotated to face-on.
   let rotCos0=Math.cos(rotZ0), rotSin0=Math.sin(rotZ0);
-  let rotatedXs=drawRows.map(r=>(n(r.EW)-rr.cx)*rotCos0-(n(r.NS)-rr.cy)*rotSin0);
+  let rotatedXAllRows=drawRows.concat(shoeMarkers).concat(...offsetTracks.map(o=>o.rows));
+  let rotatedXs=rotatedXAllRows.map(r=>(n(r.EW)-rr.cx)*rotCos0-(n(r.NS)-rr.cy)*rotSin0);
   let rotatedXSpan=Math.max(1,Math.max(...rotatedXs)-Math.min(...rotatedXs));
   let state3d={rows:drawRows,fullRows:fullRows,rotZ:rotZ0,rotX:rotX0,zoom:1.0,rotZ0,rotX0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
   window._drillwiseTrajectoryView=state3d;
