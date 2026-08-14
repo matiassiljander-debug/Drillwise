@@ -1,0 +1,467 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DrillWise Well Planner</title><style>
+:root{--blue:#003b5c;--cyan:#00a3c7;--bg:#f4f8fb;--line:#cfe4ec;--ink:#102a3a;--muted:#607987;--bad:#b91c1c;--ok:#107c41}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}.side{background:linear-gradient(180deg,#003b5c,#00516f);color:white;padding:20px}.side h1{font-size:18px;margin:0 0 4px}.side p{margin:0 0 20px;color:#c7f4fb;font-size:12px}.nav button{width:100%;display:block;text-align:left;border:0;background:transparent;color:#daf6fb;padding:10px 12px;margin:3px 0;border-radius:12px;font-weight:800;cursor:pointer}.nav button.active,.nav button:hover{background:rgba(255,255,255,.15);color:white}.main{padding:24px}.hero,.card{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,59,92,.05)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}label{display:block;font-size:12px;font-weight:800;color:#28546a;margin-bottom:8px}input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit}button{border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer}.dark{background:var(--blue);color:white}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.note{font-size:13px;color:var(--muted);line-height:1.45}.page{display:none}.page.active{display:block}.table-wrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e4eef2;padding:6px;text-align:left}th{background:#eef8fc}.metric{background:#f7fcfe;border:1px solid var(--line);border-radius:14px;padding:12px}.metric b{font-size:22px;color:var(--blue)}.plot{min-height:749px}.ok{color:var(--ok)}.bad{color:var(--bad)}@media(max-width:950px){.app{grid-template-columns:1fr}.grid,.grid3{grid-template-columns:1fr}}
+#cornerSmiley{position:fixed;left:12px;bottom:10px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,59,92,.18);background:rgba(255,255,255,.55);color:#003b5c;box-shadow:0 4px 12px rgba(0,59,92,.10);font-size:18px;line-height:1;display:grid;place-items:center;z-index:9999;opacity:.42;transition:opacity .2s,transform .2s}#cornerSmiley:hover{opacity:.95;transform:scale(1.07)}#cornerJoke{display:none;position:fixed;left:52px;bottom:12px;max-width:280px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,59,92,.14);font-size:13px;color:#102a3a;z-index:9999}
+
+.plot-tooltip{position:fixed;display:none;z-index:99999;background:#102a3a;color:white;border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.35;box-shadow:0 10px 28px rgba(0,59,92,.22);pointer-events:none;max-width:260px;white-space:pre-line}.wellpath-frame{border:0;background:transparent;border-radius:0;padding:0;box-shadow:none;margin-top:12px}.wellpath-frame .grid{margin:0}
+
+/* DrillWise v1.1 fixed: Riser colour controls side panel only */
+.riser-v11-layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px;align-items:start}.riser-v11-side{position:sticky;top:14px;background:#f8fcff;border:1px solid var(--line,#cfe4ec);border-radius:16px;padding:12px}.riser-v11-side h4{margin:0 0 10px;color:#102a3a}.riser-v11-side label{display:block;margin-bottom:10px}.riser-v11-side input[type=color]{height:34px;padding:2px}@media(max-width:1050px){.riser-v11-layout{grid-template-columns:1fr}.riser-v11-side{position:static}}
+</style></head><body><div class="app"><aside class="side"><h1>DrillWise Well Planner</h1><div id="nav" class="nav"></div></aside><main class="main"><div class="hero"><h2 id="title">Well planning tools</h2><p class="note">Uploads are side-by-side. Riser Margin and Gas Migration plots use the same inline SVG approach. Kick tolerance is the detailed version.</p><div id="runtimeError" style="display:none;background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3;border-radius:12px;padding:10px;margin-top:10px"></div></div><div id="pages"></div></main></div><script>
+window.addEventListener('error',e=>{let msg=String((e&&e.message)||'');let isScript=e&&e.target&&String(e.target.tagName).toUpperCase()==='SCRIPT';let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isScript||isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting issue suppressed:',msg);return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
+window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.reason.message)||e.reason||'');let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting promise issue suppressed:',msg);if(e&&e.preventDefault)e.preventDefault();return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
+const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElementById(id),n=v=>{let x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN},fmt=(v,d=2)=>Number.isFinite(n(v))?n(v).toFixed(d):'',esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
+const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
+const pages=[['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['wellpath','03 Wellpath'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
+const state={active:'input',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],ppfg:[],wp:[],strings:[],sections:[],kickSettings:{},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{}};
+function defaults(){state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:0,ShoeTVD:515,TopMD:0,ShoeMD:515,TopCementMD:0,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:0,ShoeTVD:1400,TopMD:0,ShoeMD:1400,TopCementMD:0,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:0,ShoeTVD:2840,TopMD:0,ShoeMD:2840,TopCementMD:1400,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2940,ShoeTVD:3552,TopMD:2940,ShoeMD:3552,TopCementMD:2940,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}]};defaults();
+function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
+function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('title').textContent=state.general.caseName||'Well planning tools';$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({input:renderInput,schematic:renderSchematic,wellpath:renderWellpath,riser:renderRiser,gas:renderGas,kick:renderKick,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
+function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
+function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
+function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section'].includes(c)?v:n(v))});out.push(o)});return out}
+function applyInputs(){state.general.caseName=$('caseName').value;state.general.waterDepth=n($('waterDepth').value);state.general.airGap=n($('airGap').value);state.general.swDensity=n($('swDensity').value);state.general.requiredOB=n($('requiredOB').value);state.strings=readEdit('stringsTable');state.sections=readEdit('sectionsTable');renderInput()}
+function renderInput(){let g=state.general;$('page-input').innerHTML=`<div class="grid"><div class="card"><h3>General</h3><div class="grid3"><label>Case<input id="caseName" value="${esc(g.caseName)}"></label><label>Water depth m<input id="waterDepth" value="${g.waterDepth}"></label><label>Air gap m<input id="airGap" value="${g.airGap}"></label><label>Seawater SG<input id="swDensity" value="${g.swDensity}"></label><label>Required OB SG<input id="requiredOB" value="${g.requiredOB}"></label></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply inputs</button></div></div><div class="card"><h3>Uploads</h3><div class="grid"><div><label>PPFG upload Excel/CSV/LAS<input id="ppfgFile" type="file" accept=".xlsx,.xls,.csv,.txt,.las"></label><div id="ppfgStatus" class="note"></div><div id="ppfgMap"></div></div><div><label>Wellpath / survey upload Excel/CSV<input id="wpFile" type="file" accept=".xlsx,.xls,.csv,.txt"></label><div id="wpStatus" class="note"></div><div id="wpMap"></div></div></div></div></div><div class="card"><h3>Casing / liner table</h3><div class="table-wrap" id="stringsTable"></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply table</button></div></div><div class="card"><h3>Sections</h3><div class="table-wrap" id="sectionsTable"></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply table</button></div></div>`;editTable('stringsTable',state.strings,['String','Type','TopTVD','ShoeTVD','TopMD','ShoeMD','TopCementMD','OD','ID','Label']);editTable('sectionsTable',state.sections,['Section','Hole','FromTVD','ToTVD','FromMD','ToMD','MW','RM']);wireUploads()}
+function loadScriptOnce(url,globalName){if(globalName&&window[globalName])return Promise.resolve(window[globalName]);return new Promise((res,rej)=>{let s=document.createElement('script');s.src=url;s.async=true;s.onload=()=>res(globalName?window[globalName]:true);s.onerror=()=>rej(new Error('Could not load Excel reader'));document.head.appendChild(s)})}async function ensureXLSX(){return window.XLSX||await loadScriptOnce('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','XLSX')}function parseAOA(aoa){let clean=aoa.map(r=>r.map(c=>String(c??'').trim()));let best=0,score=-1;for(let i=0;i<clean.length;i++){let j=clean[i].join(' ').toLowerCase(),s=0;if(/tvd|depth/.test(j))s+=3;if(/pp|pore/.test(j))s+=2;if(/fg|frac/.test(j))s+=2;if(/shmin|collapse|md|inc|azi/.test(j))s+=2;if(s>score){score=s;best=i}}let h=clean[best].map((c,i)=>c||'Column_'+(i+1));return clean.slice(best+1).filter(r=>r.some(c=>String(c).trim())).map(r=>{let o={};h.forEach((k,i)=>o[k]=Number.isFinite(n(r[i]))?n(r[i]):String(r[i]??'').trim());return o})}function parseText(t){let lines=t.split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return[];if(lines.find(l=>l.trim().toUpperCase().startsWith('~ASCII'))){let idx=lines.findIndex(l=>l.trim().toUpperCase().startsWith('~ASCII')),h=['TVD','FG','FG2','OBG','PP','PP2','Collapse','Shmin'];return lines.slice(idx+1).map(l=>{let vals=l.trim().split(/\s+/),o={};h.slice(0,vals.length).forEach((k,i)=>o[k]=n(vals[i]));return o})}let sep=lines[0].includes(';')?';':lines[0].includes('\t')?'\t':',';let h=lines[0].split(sep).map((x,i)=>x.trim()||'Column_'+(i+1));return lines.slice(1).map(l=>{let vals=l.split(sep),o={};h.forEach((k,i)=>o[k]=Number.isFinite(n(vals[i]))?n(vals[i]):String(vals[i]??'').trim());return o})}async function loadUpload(file,isPP){if(!file)return;let status=$(isPP?'ppfgStatus':'wpStatus');try{let rows;if(/\.xlsx?$/i.test(file.name)){status.textContent='Loading Excel reader...';let X=await ensureXLSX();let wb=X.read(await file.arrayBuffer(),{type:'array'});let ws=wb.Sheets[wb.SheetNames[0]];rows=parseAOA(X.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}))}else rows=parseText(await file.text());if(isPP)state.ppfgRaw=rows;else state.wpRaw=rows;status.textContent=`Loaded ${rows.length} rows from ${file.name}`;showMap(isPP,rows)}catch(e){status.textContent='Upload failed: '+e.message+'. If offline, save Excel as CSV and upload the CSV.'}}function wireUploads(){let p=$('ppfgFile'),w=$('wpFile');if(p)p.onchange=e=>loadUpload(e.target.files[0],true);if(w)w.onchange=e=>loadUpload(e.target.files[0],false)}function showMap(isPP,rows){let div=$(isPP?'ppfgMap':'wpMap'),cols=Object.keys(rows[0]||{}),fields=isPP?['TVD','PP','FG','Shmin','Collapse']:['MD','TVD','Inc','Azimuth','NS','EW'],keys={TVD:['tvd','depth'],PP:['pp','pore'],FG:['fg','frac'],Shmin:['shmin'],Collapse:['collapse','sfg'],MD:['md','measured'],Inc:['inc','incl'],Azimuth:['azi','azim'],NS:['north','ns'],EW:['east','ew']};let guess=f=>cols.find(c=>keys[f].some(k=>c.toLowerCase().includes(k)))||'';div.innerHTML='<div class="grid3">'+fields.map(f=>`<label>${f}<select id="map_${isPP?'pp':'wp'}_${f}"><option></option>${cols.map(c=>`<option ${c===guess(f)?'selected':''}>${esc(c)}</option>`).join('')}</select></label>`).join('')+'</div><div class="actions"><button class="dark" onclick="applyMap('+isPP+')">Apply mapping</button><button onclick="previewRaw('+isPP+')">Preview rows</button></div><div class="table-wrap" id="'+(isPP?'ppfgPreview':'wpPreview')+'"></div>'}function previewRaw(isPP){$(isPP?'ppfgPreview':'wpPreview').innerHTML=table((isPP?state.ppfgRaw:state.wpRaw).slice(0,20))}function applyMap(isPP){let raw=isPP?state.ppfgRaw:state.wpRaw,p=isPP?'pp':'wp',v=f=>$(`map_${p}_${f}`).value;if(isPP){state.ppfg=raw.map(r=>({TVD:n(r[v('TVD')]),PP:ppfgValue(r[v('PP')]),FG:ppfgValue(r[v('FG')]),Shmin:ppfgValue(r[v('Shmin')]),Collapse:ppfgValue(r[v('Collapse')])})).filter(r=>Number.isFinite(r.TVD)).sort((a,b)=>a.TVD-b.TVD);$('ppfgPreview').innerHTML='<p class="note">Mapped PPFG. Missing values such as -999 are treated as blank and are not plotted.</p>'+table(state.ppfg.slice(0,25))}else{state.wp=raw.map(r=>({MD:n(r[v('MD')]),TVD:n(r[v('TVD')]),Inc:n(r[v('Inc')]),Azimuth:n(r[v('Azimuth')]),NS:n(r[v('NS')]),EW:n(r[v('EW')])})).filter(r=>Number.isFinite(r.MD)&&Number.isFinite(r.TVD));$('wpPreview').innerHTML=table(state.wp.slice(0,25))}}
+function interp(rows,xcol,ycol,x){let a=rows.filter(r=>Number.isFinite(r[xcol])&&Number.isFinite(r[ycol])).sort((u,v)=>u[xcol]-v[xcol]);if(!a.length)return NaN;if(x<=a[0][xcol])return a[0][ycol];if(x>=a.at(-1)[xcol])return a.at(-1)[ycol];for(let i=1;i<a.length;i++){if(x<=a[i][xcol]){let p=a[i-1],q=a[i],t=(x-p[xcol])/(q[xcol]-p[xcol]);return p[ycol]+t*(q[ycol]-p[ycol])}}return NaN}function shoeShapes(x0,x1,xAnn,col){let shapes=[],ann=[];state.strings.forEach(s=>{let y=n(s.ShoeTVD);if(Number.isFinite(y)&&y>0){shapes.push({x0,x1,y0:y,y1:y,line:{color:col}});ann.push({x:xAnn,y,text:(s.String||'')+(s.Label?' - '+s.Label:''),font:{color:col}})}});return{shapes,ann}}function svgPlot(target,title,traces,shapes,ann,xmin,xmax,ymax,xTitle){
+  let W=1411,H=1037,L=96,R=224,T=52,B=92,w=W-L-R,h=H-T-B,YMAX=Math.max(100,ymax||maxDepth()),X=x=>L+(x-xmin)/(xmax-xmin)*w,Y=y=>T+(Number(y)||0)/YMAX*h,svg=[];
+  let tipAttr=t=>esc(String(t||'').replace(/\n/g,' | '));
+  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;max-width:1411px;min-width:760px;height:auto;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="white"/>`);
+  svg.push(`<text x="${L}" y="${T-18}" font-family="Segoe UI" font-size="17" font-weight="700" fill="#102a3a">${esc(title)}</text>`);
+  if(!traces.length)svg.push(`<text x="${L+20}" y="${T+45}" font-family="Segoe UI" font-size="16" fill="#b91c1c">No plot traces available. Check PPFG mapping and inputs.</text>`);
+  for(let x=xmin;x<=xmax+.001;x+=.2){svg.push(`<line x1="${X(x)}" y1="${T}" x2="${X(x)}" y2="${T+h}" stroke="#e5eef2"/><text x="${X(x)-10}" y="${T+h+24}" font-family="Segoe UI" font-size="11" fill="#607987">${x.toFixed(1)}</text>`)}
+  for(let y=0;y<=YMAX;y+=500){svg.push(`<line x1="${L}" y1="${Y(y)}" x2="${L+w}" y2="${Y(y)}" stroke="#e5eef2"/><text x="${L-60}" y="${Y(y)+4}" font-family="Segoe UI" font-size="11" fill="#607987">${Math.round(y)}</text>`)}
+  svg.push(`<rect x="${L}" y="${T}" width="${w}" height="${h}" fill="none" stroke="#102a3a"/>`);
+  traces.forEach((tr,ti)=>{
+    let xs=tr.x||[],ys=tr.y||[],line=tr.line||{},col=line.color||'#111',dash=line.dash==='dot'?'stroke-dasharray="5,5"':line.dash==='dash'?'stroke-dasharray="8,5"':line.dash==='dashdot'?'stroke-dasharray="8,4,2,4"':'',pts=[];
+    let name=tr.name||tr.label||`Trace ${ti+1}`;
+    xs.forEach((x,i)=>{if(Number.isFinite(x)&&Number.isFinite(ys[i])&&x>=xmin&&x<=xmax&&ys[i]>=0&&ys[i]<=YMAX)pts.push({px:X(x),py:Y(ys[i]),x:x,y:ys[i],i:i})});
+    if(pts.length){
+      svg.push(`<polyline points="${pts.map(p=>`${p.px},${p.py}`).join(' ')}" fill="none" stroke="${col}" stroke-width="${line.width||1.7}" ${dash}/>`);
+      pts.forEach(p=>{let tip=`${name} | TVD: ${fmt(p.y,1)} m | Value: ${fmt(p.x,3)} SG`;svg.push(`<circle cx="${p.px}" cy="${p.py}" r="2.2" fill="${col}"><title>${esc(tip)}</title></circle><circle cx="${p.px}" cy="${p.py}" r="8" fill="transparent" data-tip="${tipAttr(tip)}" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"></circle>`)})
+    }
+  });
+  shapes.forEach((s,si)=>{let label=(ann&&ann[si]&&ann[si].text)?ann[si].text:'Casing shoe';let tip=`${label} | TVD: ${fmt(s.y0,1)} m`;svg.push(`<line x1="${X(s.x0)}" y1="${Y(s.y0)}" x2="${X(s.x1)}" y2="${Y(s.y1)}" stroke="${s.line.color}" stroke-width="0.8" stroke-dasharray="5,5"/><line x1="${X(s.x0)}" y1="${Y(s.y0)}" x2="${X(s.x1)}" y2="${Y(s.y1)}" stroke="transparent" stroke-width="10" data-tip="${tipAttr(tip)}" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"></line>`)});
+  ann.forEach(a=>svg.push(`<text x="${X(a.x)-165}" y="${Y(a.y)-3}" font-family="Segoe UI" font-size="11" fill="${a.font.color}">${esc(a.text)}</text>`));
+  svg.push(`<text x="${L+w/2-90}" y="${H-32}" font-family="Segoe UI" font-size="11" fill="#102a3a">${esc(xTitle)}</text><text transform="translate(24 ${T+h/2}) rotate(-90)" font-family="Segoe UI" font-size="11" fill="#102a3a">TVD m</text></svg>`);
+  $(target).innerHTML=svg.join('');
+}
+
+
+
+function renderSchematic(){
+  $('page-schematic').innerHTML=`<div class="card"><h3>Well schematic</h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them.</p><div class="actions"><button class="dark" onclick="drawSchematic()">Refresh schematic</button><button onclick="resetSchematicLabels()">Reset label positions</button></div><div id="schematicPlot" class="plot"></div></div>`;
+  drawSchematic();
+}
+function mdToTvd(md){let v=interp(state.wp,'MD','TVD',md);return Number.isFinite(v)?v:md}
+function schemLabel(key,x,y,text,size=13,colour='#06263a',weight='normal'){
+  let p=state.schematicLabelPos&&state.schematicLabelPos[key]?state.schematicLabelPos[key]:{dx:0,dy:0};
+  return `<text class="schem-label" data-key="${esc(key)}" x="${x+(p.dx||0)}" y="${y+(p.dy||0)}" font-family="Segoe UI, Arial" font-size="${size}" font-weight="${weight}" fill="${colour}" style="cursor:move;user-select:none">${esc(text)}</text>`;
+}
+function resetSchematicLabels(){state.schematicLabelPos={};drawSchematic()}
+function makeSchematicLabelsDraggable(){
+  let svg=document.querySelector('#schematicPlot svg'); if(!svg)return;
+  let active=null,start={x:0,y:0},orig={x:0,y:0};
+  function pt(evt){let p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
+  svg.querySelectorAll('.schem-label').forEach(el=>{
+    el.addEventListener('mousedown',evt=>{evt.preventDefault();active=el;let p=pt(evt);start={x:p.x,y:p.y};orig={x:n(el.getAttribute('x')),y:n(el.getAttribute('y'))};});
+  });
+  window.addEventListener('mousemove',evt=>{if(!active)return;let p=pt(evt),nx=orig.x+p.x-start.x,ny=orig.y+p.y-start.y;active.setAttribute('x',nx);active.setAttribute('y',ny)});
+  window.addEventListener('mouseup',()=>{if(!active)return;let k=active.dataset.key,base=active.__base||null;if(!state.schematicLabelPos)state.schematicLabelPos={};state.schematicLabelPos[k]={dx:n(active.getAttribute('x'))-(n(active.dataset.baseX)||0),dy:n(active.getAttribute('y'))-(n(active.dataset.baseY)||0)};active=null;});
+  svg.querySelectorAll('.schem-label').forEach(el=>{if(!el.dataset.baseX){el.dataset.baseX=el.getAttribute('x');el.dataset.baseY=el.getAttribute('y')}});
+}
+function drawSchematic(){
+  // Restored reference schematic, enlarged slightly and with draggable labels.
+  let W=1294,H=1320,T=78,B=42,td=maxDepth(),plotH=H-T-B,Y=d=>T+(Number(d)||0)/Math.max(td,1)*plotH;
+  let cx=555, svg=[];
+  let maxOD=Math.max(...state.strings.map(s=>n(s.OD)||0),36);
+  let half=od=>38+(n(od)||0)/Math.max(maxOD,1)*124;
+  let sectionX=cx-138, sectionW=275;
+  let dark='#06263a', grey='#a8a8a8', greyStroke='#6f6f6f', blue1='#e8f8fc', cream='#fff6ec';
+  let caseName=state.general.caseName||'Well';
+  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;max-width:1110px;min-width:720px;height:auto;background:white;border:0;border-radius:0;display:block" xmlns="http://www.w3.org/2000/svg">`);
+  svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
+  svg.push(schemLabel('title',20,32,`${caseName} - Well Schematic`,27,'#003b5c','800'));
+  svg.push(schemLabel('subtitle',20,58,'Classic subsea vertical schematic | seabed top reference | grey cement blocks',13,'#4f6f82'));
+  svg.push(`<line x1="68" y1="${Y(0)}" x2="935" y2="${Y(0)}" stroke="#777" stroke-width="1.6" stroke-dasharray="7,8"/>`);
+  svg.push(schemLabel('seabed_label',952,Y(0)+4,'Seabed / top of subsea casing schematic',12,'#111'));
+
+  state.sections.forEach((s,i)=>{
+    let y1=Y(s.FromTVD), y2=Y(s.ToTVD), fill=i%2===0?cream:blue1;
+    svg.push(`<rect x="${sectionX}" y="${y1}" width="${sectionW}" height="${Math.max(2,y2-y1)}" fill="${fill}" stroke="#e0e9ee"/>`);
+    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,14,dark));
+  });
+
+  state.strings.forEach((s,i)=>{
+    let hp=half(s.OD), yt=Y(mdToTvd(n(s.TopCementMD))), yb=Y(s.ShoeTVD);
+    if(Number.isFinite(yt)&&Number.isFinite(yb)&&yb>yt){let cementW=29;svg.push(`<rect x="${cx-hp-cementW}" y="${yt}" width="${cementW}" height="${yb-yt}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/><rect x="${cx+hp}" y="${yt}" width="${cementW}" height="${yb-yt}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`)}
+  });
+
+  state.strings.slice().sort((a,b)=>n(b.OD)-n(a.OD)).forEach((s,idx)=>{
+    let hp=half(s.OD), yt=Y(s.TopTVD), yb=Y(s.ShoeTVD), type=String(s.Type||'').toLowerCase();
+    let dash=type.includes('tieback')?'stroke-dasharray="7,5"':'';
+    svg.push(`<line x1="${cx-hp}" y1="${yt}" x2="${cx-hp}" y2="${yb}" stroke="${dark}" stroke-width="5" ${dash}/><line x1="${cx+hp}" y1="${yt}" x2="${cx+hp}" y2="${yb}" stroke="${dark}" stroke-width="5" ${dash}/>`);
+    let tri=35;svg.push(`<polygon points="${cx-hp},${yb} ${cx-hp-tri},${yb} ${cx-hp},${yb-tri}" fill="#050505"/><polygon points="${cx+hp},${yb} ${cx+hp+tri},${yb} ${cx+hp},${yb-tri}" fill="#050505"/>`);
+    let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD), n(s.OD)%1===0?0:3):'';
+    let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'');
+    svg.push(schemLabel('shoe_'+idx,Math.max(40,cx-hp-275),yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,14,dark));
+    if(type.includes('liner')){
+      let prev=state.strings.filter(p=>n(p.ShoeTVD)<n(s.TopTVD)&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.ShoeTVD)-n(b.ShoeTVD)).pop();
+      let outer=prev?half(prev.OD):hp+36, ylt=Y(s.TopTVD);
+      // DrillWise v1.8 liner hanger attached patch applied
+      // Hanger boxes sit at the liner top, attached just outside the liner wall, and remain inside the previous casing.
+      let annGap=Math.max(0, outer-hp);
+      let outerClear=8;
+      let linerClear=3;
+      let maxBoxW=Math.max(6, annGap-outerClear-linerClear);
+      let boxW=Math.max(6, Math.min(13, maxBoxW));
+      let boxH=17;
+      let yBox=ylt-boxH+2;
+      // Left side: box right edge is close to the outside edge of the liner wall, extending into the annulus.
+      let leftX=cx-hp-linerClear-boxW;
+      // Right side: box left edge is close to outside edge of liner wall, extending into the annulus.
+      let rightX=cx+hp+linerClear;
+      // Keep boxes inside the previous casing, not on the previous casing wall.
+      leftX=Math.max(leftX,cx-outer+outerClear);
+      rightX=Math.min(rightX,cx+outer-outerClear-boxW);
+      // Small connector ticks make the boxes read as attached to the liner top without crossing the liner wall.
+      let leftTickX=cx-hp-linerClear;
+      let rightTickX=cx+hp+linerClear;
+      svg.push(`<rect x="${leftX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="none" stroke="${dark}" stroke-width="1.5"/><line x1="${leftX+boxW}" y1="${ylt-2}" x2="${leftTickX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/><rect x="${rightX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="none" stroke="${dark}" stroke-width="1.5"/><line x1="${rightTickX}" y1="${ylt-2}" x2="${rightX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/>`);
+      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',12,dark));
+    }
+  });
+
+  let deepest=Math.max(...state.strings.map(s=>n(s.ShoeTVD)||0));
+  let finalSection=state.sections.slice().sort((a,b)=>n(b.ToTVD)-n(a.ToTVD))[0];
+  let yTop=Y(deepest), yBot=Y(td), amp=8, left=cx-49, right=cx+49, pathL='', pathR='';
+  for(let y=yTop;y<=yBot;y+=18){let off=Math.sin((y-yTop)/18)*amp;pathL+=(pathL?' L':'M')+(left+off)+','+y;pathR+=(pathR?' L':'M')+(right-off)+','+y}
+  svg.push(`<path d="${pathL}" fill="none" stroke="#777" stroke-width="3"/><path d="${pathR}" fill="none" stroke="#777" stroke-width="3"/>`);
+  if(finalSection)svg.push(schemLabel('final_section',810,(Y(finalSection.FromTVD)+Y(finalSection.ToTVD))/2,`${finalSection.Section} | ${fmt(n(finalSection.FromTVD),0)}-${fmt(n(finalSection.ToTVD),0)} mTVD | MW ${fmt(n(finalSection.MW),2)} SG`,14,dark));
+  svg.push(`</svg>`);
+  $('schematicPlot').innerHTML=svg.join('');
+  makeSchematicLabelsDraggable();
+}
+
+function rmRows(){let wd=state.general.waterDepth||0,sw=state.general.swDensity||1.03,ob=state.general.requiredOB||0,rows=[];state.sections.filter(s=>s.RM===true||String(s.RM).toLowerCase()==='true').forEach(s=>{let pts=state.ppfg.filter(p=>p.TVD>=s.FromTVD&&p.TVD<=s.ToTVD);if(!pts.length)pts=[{TVD:s.FromTVD},{TVD:s.ToTVD}];pts.forEach(p=>{let pp=Number.isFinite(p.PP)?p.PP:interp(state.ppfg,'TVD','PP',p.TVD),req=Number.isFinite(pp)?((pp+ob)*p.TVD-sw*wd)/Math.max(p.TVD-wd-state.general.airGap,.1):NaN;rows.push({Section:s.Section,TVD:p.TVD,MW:s.MW,PP:pp,FG:p.FG,Shmin:p.Shmin,Collapse:p.Collapse,RequiredMW:req,Margin:s.MW-req,Pass:(s.MW-req)>=0?'OK':'LOW'})})});return rows}function renderRiser(){
+  let controls = Object.keys(state.rmColors || {}).map(k => `<label>${k}<input type="color" id="rm_${k}" value="${state.rmColors[k]}"></label>`).join('');
+  $('page-riser').innerHTML = `<div class="card"><h3>Riser Margin Plot</h3><div class="riser-v11-layout"><div id="rmPlot" class="plot"></div><aside class="riser-v11-side"><h4>Plot colours</h4>${controls}<button class="dark" onclick="drawRiser()">Update colours</button></aside></div></div><div class="card"><h3>Audit</h3><div class="tablewrap" id="rmTable"></div></div>`;
+  Object.keys(state.rmColors || {}).forEach(k=>{let el=$('rm_'+k); if(el) el.oninput=()=>{state.rmColors[k]=el.value; drawRiser();};});
+  drawRiser();
+}
+function drawRiser(){let c=state.rmColors,data=[];['PP','FG','Shmin','Collapse'].forEach(k=>{let pts=state.ppfg.filter(r=>Number.isFinite(r[k]));if(pts.length)data.push({name:k,x:pts.map(r=>r[k]),y:pts.map(r=>r.TVD),line:{color:c[k],width:1.7}})});state.sections.forEach(s=>data.push({name:'MW '+s.Section,x:[s.MW,s.MW],y:[s.FromTVD,s.ToTVD],line:{color:c.MW,width:1.8,dash:'dot'}}));let audit=rmRows().filter(r=>Number.isFinite(r.RequiredMW));if(audit.length)data.push({name:'Required MW',x:audit.map(r=>r.RequiredMW),y:audit.map(r=>r.TVD),line:{color:c.Required,width:1.7,dash:'dashdot'}});let sa=shoeShapes(.75,2.75,2.70,c.Shoe);svgPlot('rmPlot','Riser Margin Plot',data,sa.shapes,sa.ann,.75,2.8,maxDepth(),'EMW / MW SG');$('rmTable').innerHTML=table(rmRows())}
+function gasRows(input){let sourceTVD=n(input.sourceTVD),sourcePPsg=n(input.sourcePPsg),gasSG=n(input.gasSG),marginSG=n(input.marginSG);if(!Number.isFinite(sourcePPsg))sourcePPsg=interp(state.ppfg,'TVD','PP',sourceTVD);if(!Number.isFinite(sourceTVD)||!Number.isFinite(sourcePPsg))return[];let sourcePressure=sourcePPsg*sourceTVD*BAR_PER_M_SG;return state.strings.filter(s=>n(s.ShoeTVD)>0&&n(s.ShoeTVD)<sourceTVD).map(s=>{let shoe=n(s.ShoeTVD),gp=sourcePressure-gasSG*(sourceTVD-shoe)*BAR_PER_M_SG,gemw=gp/(shoe*BAR_PER_M_SG),sh=interp(state.ppfg,'TVD','Shmin',shoe),fg=interp(state.ppfg,'TVD','FG',shoe),lim=Number.isFinite(sh)?sh:fg,mar=Number.isFinite(lim)?lim-marginSG-gemw:NaN;return{String:s.String,Shoe:s.Label,ShoeTVD:shoe,GasEMWAtShoe_SG:gemw,ShminAtShoe_SG:sh,FGAtShoe_SG:fg,IntegrityMargin_SG:mar,Result:Number.isFinite(mar)?(mar>=0?'HOLD':'FRAC RISK'):'NO SHMIN/FG'}})}function gasCurve(input){let sourceTVD=n(input.sourceTVD),sourcePPsg=n(input.sourcePPsg),gasSG=n(input.gasSG);if(!Number.isFinite(sourcePPsg))sourcePPsg=interp(state.ppfg,'TVD','PP',sourceTVD);if(!Number.isFinite(sourceTVD)||!Number.isFinite(sourcePPsg))return[];let sp=sourcePPsg*sourceTVD*BAR_PER_M_SG,td=maxDepth(),pts=[];for(let d=Math.max(1,state.general.waterDepth||1);d<=td;d+=25){let gas=NaN;if(d<=sourceTVD){let gp=sp-gasSG*(sourceTVD-d)*BAR_PER_M_SG;gas=gp/(d*BAR_PER_M_SG)}pts.push({TVD:d,GasEMW:gas,PP:interp(state.ppfg,'TVD','PP',d),Shmin:interp(state.ppfg,'TVD','Shmin',d),FG:interp(state.ppfg,'TVD','FG',d)})}return pts}function loadGasPP(){let d=n($('gas_sourceTVD').value),pp=interp(state.ppfg,'TVD','PP',d);if(Number.isFinite(pp))$('gas_sourcePPsg').value=fmt(pp,3);calcGas()}function renderGas(){let d=maxDepth(),pp=interp(state.ppfg,'TVD','PP',d);$('page-gas').innerHTML=`<div class="card"><h3>Gas migration / well integrity</h3><div class="grid3"><label>Gas source TVD m<input id="gas_sourceTVD" value="${fmt(d,0)}" oninput="loadGasPP()"></label><label>Source PP SG (auto from PPFG)<input id="gas_sourcePPsg" value="${fmt(pp,3)}"></label><label>Gas density SG<input id="gas_gasSG" value="0.25"></label><label>Safety margin SG<input id="gas_marginSG" value="0.03"></label></div><div class="actions"><button class="dark" onclick="calcGas()">Calculate gas migration</button><button onclick="loadGasPP()">Reload source PP from PPFG</button></div></div><div id="gasMetrics" class="grid3"></div><div class="card"><h3>Gas migration plot</h3><div id="gasPlot" class="plot"></div></div><div class="card"><h3>Previous shoe checks</h3><div id="gasTable"></div></div>`;calcGas()}function calcGas(){let input={sourceTVD:n($('gas_sourceTVD').value),sourcePPsg:n($('gas_sourcePPsg').value),gasSG:n($('gas_gasSG').value),marginSG:n($('gas_marginSG').value)},rows=gasRows(input),curve=gasCurve(input);$('gasTable').innerHTML=table(rows);let worst=rows.filter(r=>Number.isFinite(r.IntegrityMargin_SG)).sort((a,b)=>a.IntegrityMargin_SG-b.IntegrityMargin_SG)[0];$('gasMetrics').innerHTML=[['Source TVD',input.sourceTVD,'mTVD'],['Source PP',input.sourcePPsg,'SG'],['Worst result',worst?worst.Result:'No shoes','']].map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b>${typeof m[1]==='number'?fmt(m[1],2):m[1]}</b> ${m[2]}</div>`).join('');let traces=[],add=(k,col)=>{let pts=curve.filter(p=>Number.isFinite(p[k]));if(pts.length)traces.push({name:k,x:pts.map(p=>p[k]),y:pts.map(p=>p.TVD),line:{color:col,width:1.7}})};add('PP','#d62728');add('Shmin','#9467bd');add('FG','#1f77b4');let gas=curve.filter(p=>Number.isFinite(p.GasEMW)&&p.GasEMW<=2.8);if(gas.length)traces.push({name:'Gas migration EMW',x:gas.map(p=>p.GasEMW),y:gas.map(p=>p.TVD),line:{color:'#111',width:1.8,dash:'dash'}});let sa=shoeShapes(.6,2.8,2.74,'#003b5c');svgPlot('gasPlot','Gas Migration Plot',traces,sa.shapes,sa.ann,.6,2.8,maxDepth(),'Equivalent mud weight / pressure gradient SG')}
+function kickSections(){return state.sections.filter(s=>n(s.Hole)<=17.5)}function kickKey(s){return `${s.Section}_${s.FromTVD}_${s.ToTVD}_${s.Hole}`}function ppFromPpfg(s){return interp(state.ppfg,'TVD','PP',s.ToTVD)}function fgFromPpfg(s){return interp(state.ppfg,'TVD','FG',s.FromTVD)}function capLpm(outer,inner=0){return outer>inner?CAP_LPM*(outer*outer-inner*inner):NaN}function getKick(s){let k=kickKey(s);if(!state.kickSettings[k])state.kickSettings[k]={gas:.25,choke:5,safety:10,minKT:25,dp:5.875,bha:8,bhaLen:300,outer:s.Hole,pp:Number.isFinite(ppFromPpfg(s))?ppFromPpfg(s):s.MW-.1,fg:Number.isFinite(fgFromPpfg(s))?fgFromPpfg(s):s.MW+.25,mw:s.MW,swabSG:.10};return state.kickSettings[k]}let currentKickKey=null;function saveKick(){if(!currentKickKey)return;let s=state.kickSettings[currentKickKey];['gas','choke','safety','minKT','dp','bha','bhaLen','outer','pp','fg','mw','swabSG'].forEach(k=>{let el=$('kt_'+k);if(el)s[k]=n(el.value)})}function renderKick(){let valid=kickSections();$('page-kick').innerHTML=`<div class="card"><h3>Kick tolerance</h3><p class="note">Detailed kick tolerance. PP defaults from PPFG at section TD and FG from PPFG at shoe/start depth.</p><div class="grid3"><label>Section<select id="ktSec">${valid.map((s,i)=>`<option value="${i}">${s.Section}</option>`).join('')}</select></label>${['gas','choke','safety','minKT','dp','bha','bhaLen','outer','pp','fg','mw','swabSG'].map(k=>`<label>${k}<input id="kt_${k}" type="number" step="0.001"></label>`).join('')}</div><div class="actions"><button class="dark" onclick="calcKick(false)">Calculate</button><button onclick="calcKick(true)">Swabbed kick scenario</button><button onclick="reloadPPFGKick()">Reload PP/FG from PPFG</button></div><div id="ktSource" class="note"></div></div><div id="ktMetrics" class="grid3"></div><div class="card"><h3>Kick tolerance audit</h3><div id="ktAudit"></div></div>`;if(!valid.length)return;$('ktSec').onchange=()=>{saveKick();loadKick(valid[n($('ktSec').value)||0]);calcKick(false)};loadKick(valid[0]);calcKick(false)}function loadKick(sec){currentKickKey=kickKey(sec);let s=getKick(sec);Object.keys(s).forEach(k=>{let el=$('kt_'+k);if(el)el.value=s[k]});$('ktSource').innerHTML=`PP from PPFG TD: ${fmt(ppFromPpfg(sec),3)} SG | FG from PPFG shoe/start: ${fmt(fgFromPpfg(sec),3)} SG`}function reloadPPFGKick(){let sec=kickSections()[n($('ktSec').value)||0],s=getKick(sec),pp=ppFromPpfg(sec),fg=fgFromPpfg(sec);if(Number.isFinite(pp))s.pp=pp;if(Number.isFinite(fg))s.fg=fg;loadKick(sec);calcKick(false)}function calculateKick(sec,s,swab=false){let eff=swab?Math.max(0,s.mw-s.swabSG):s.mw,maasp=sec.FromTVD*(s.fg-s.mw)*BAR_PER_M_SG-s.choke-s.safety,kickIntensity=Math.max(0,(s.pp-eff)*sec.ToTVD*BAR_PER_M_SG),avail=Math.max(0,maasp-kickIntensity),denom=Math.max(s.mw*BAR_PER_M_SG-s.gas*BAR_PER_M_SG,.0001),allowed=avail/denom,len=Math.max(0,sec.ToMD-sec.FromMD),bhaLen=Math.min(s.bhaLen,len),dpLen=Math.max(0,len-bhaLen),capDP=capLpm(s.outer,s.dp),capBHA=capLpm(s.outer,s.bha),hBHA=Math.min(allowed,bhaLen),hDP=Math.max(0,Math.min(allowed-bhaLen,dpLen)),kt=(hBHA*capBHA+hDP*capDP)/1000;return{Scenario:swab?'Swabbed kick':'Normal kick',Section:sec.Section,PP:s.pp,FG:s.fg,Planned_MW:s.mw,Effective_MW:eff,MAASP_net_bar:maasp,Kick_intensity_bar:kickIntensity,Available_shoe_pressure_bar:avail,Allowable_height_m:allowed,KickTolerance_m3:kt,KickTolerance_bbl:kt*BBL,MinimumRequired_m3:s.minKT,Status:kt>=s.minKT?'OK':'LOW'}}function calcKick(swab=false){let sec=kickSections()[n($('ktSec').value)||0];if(!sec)return;saveKick();let r=calculateKick(sec,getKick(sec),swab);$('ktMetrics').innerHTML=[['Scenario',r.Scenario,''],['Kick tolerance',r.KickTolerance_m3,'m³'],['Kick tolerance',r.KickTolerance_bbl,'bbl'],['MAASP net',r.MAASP_net_bar,'bar'],['Available shoe pressure',r.Available_shoe_pressure_bar,'bar'],['Result',r.Status,'']].map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b class="${m[1]==='OK'?'ok':m[1]==='LOW'?'bad':''}">${typeof m[1]==='number'?fmt(m[1],2):m[1]}</b> ${m[2]}</div>`).join('');$('ktAudit').innerHTML=table([r])}
+
+function trajectoryRows(){
+  let rows=(state.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))).map(r=>({MD:n(r.MD),TVD:n(r.TVD),Inc:n(r.Inc),Azimuth:n(r.Azimuth),NS:n(r.NS),EW:n(r.EW)})).sort((a,b)=>a.MD-b.MD);
+  if(rows.some(r=>!Number.isFinite(r.NS)||!Number.isFinite(r.EW))){
+    let ns=0,ew=0;
+    for(let i=0;i<rows.length;i++){
+      if(i===0){rows[i].NS=0;rows[i].EW=0;continue}
+      let p=rows[i-1],cur=rows[i],dmd=Math.max(0,cur.MD-p.MD),inc=Number.isFinite(cur.Inc)?cur.Inc:(p.Inc||0),azi=Number.isFinite(cur.Azimuth)?cur.Azimuth:(p.Azimuth||0),h=dmd*Math.sin(inc*Math.PI/180);
+      ns=(Number.isFinite(p.NS)?p.NS:ns)+h*Math.cos(azi*Math.PI/180);
+      ew=(Number.isFinite(p.EW)?p.EW:ew)+h*Math.sin(azi*Math.PI/180);
+      cur.NS=Number.isFinite(cur.NS)?cur.NS:ns;cur.EW=Number.isFinite(cur.EW)?cur.EW:ew;
+    }
+  }
+  return rows;
+}
+function lookupTrajectory(){
+  let rows=trajectoryRows(),basis=$('trajBasis').value,val=n($('trajDepth').value);
+  if(!rows.length||!Number.isFinite(val)){$('trajResult').innerHTML='<p class="note">Upload and map a wellpath first, then enter a valid depth.</p>';return}
+  let md=basis==='MD'?val:interp(rows,'TVD','MD',val),tvd=basis==='TVD'?val:interp(rows,'MD','TVD',val),inc=interp(rows,basis,'Inc',val),azi=interp(rows,basis,'Azimuth',val),ns=interp(rows,basis,'NS',val),ew=interp(rows,basis,'EW',val),pp=interp(state.ppfg,'TVD','PP',tvd),fg=interp(state.ppfg,'TVD','FG',tvd),sh=interp(state.ppfg,'TVD','Shmin',tvd);
+  $('trajResult').innerHTML=table([{Basis:basis,Input:val,MD:md,TVD:tvd,Inclination:inc,Azimuth:azi,NS:ns,EW:ew,PP:pp,FG:fg,Shmin:sh}]);
+}
+
+
+
+function wellpathRanges(rows){
+  let finite=a=>a.filter(Number.isFinite);
+  let ews=finite(rows.map(r=>n(r.EW))), nss=finite(rows.map(r=>n(r.NS))), tvds=finite(rows.map(r=>n(r.TVD)));
+  let minEW=Math.min(...ews,0), maxEW=Math.max(...ews,1), minNS=Math.min(...nss,0), maxNS=Math.max(...nss,1), maxTVD=Math.max(...tvds,1);
+  if(maxEW===minEW){maxEW+=1;minEW-=1} if(maxNS===minNS){maxNS+=1;minNS-=1}
+  return {minEW,maxEW,minNS,maxNS,maxTVD};
+}
+function loadPlotlyTrajectory(cb){
+  if(window.Plotly){cb(true);return;}
+  if(window._plotlyTrajectoryLoading){window._plotlyTrajectoryCallbacks=window._plotlyTrajectoryCallbacks||[];window._plotlyTrajectoryCallbacks.push(cb);return;}
+  window._plotlyTrajectoryLoading=true;window._plotlyTrajectoryCallbacks=[cb];let done=false;
+  function finish(ok){if(done)return;done=true;window._plotlyTrajectoryLoading=false;(window._plotlyTrajectoryCallbacks||[]).forEach(f=>{try{f(ok)}catch(e){console.warn(e)}});window._plotlyTrajectoryCallbacks=[];}
+  let s=document.createElement('script');s.src='https://cdn.plot.ly/plotly-2.35.2.min.js';s.async=true;s.onload=()=>finish(!!window.Plotly);s.onerror=()=>finish(false);document.head.appendChild(s);setTimeout(()=>finish(!!window.Plotly),4500);
+}
+function renderWellpath(){
+  let rows=trajectoryRows();
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="grid"><div class="card"><h3>3D trajectory</h3><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  drawWellpathViews(rows);
+}
+function drawWellpathViews(rows){
+  if(!rows.length){$('traj3dCanvas').outerHTML='<p class="note">Upload and map a wellpath first.</p>';$('trajPlanCanvas').outerHTML='<p class="note">Upload and map a wellpath first.</p>';return;}
+  try{initNativeTrajectory(rows)}catch(e){console.warn('Wellpath native view failed:',e);let a=$('traj3dCanvas'),b=$('trajPlanCanvas');if(a)a.outerHTML='<p class="note">Wellpath view could not be drawn. Check mapped MD/TVD/NS/EW/Inc values.</p>';if(b)b.outerHTML='<p class="note">Plan view could not be drawn. Check mapped wellpath values.</p>';}
+}
+function downsampleTrajectoryRows(rows,maxPts=350){
+  rows=rows||[];
+  if(rows.length<=maxPts)return rows;
+  let out=[], step=(rows.length-1)/(maxPts-1);
+  for(let i=0;i<maxPts;i++){out.push(rows[Math.round(i*step)])}
+  return out;
+}
+function initNativeTrajectory(rows){
+  let fullRows=(rows||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))&&Number.isFinite(n(r.NS))&&Number.isFinite(n(r.EW)));
+  let drawRows=downsampleTrajectoryRows(fullRows,350);
+  let c3=$('traj3dCanvas'), cp=$('trajPlanCanvas');
+  if(!c3||!cp||!drawRows.length)return;
+  let state3d={rows:drawRows,fullRows:fullRows,rotZ:-0.75,rotX:0.72,zoom:1.0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
+  window._drillwiseTrajectoryView=state3d;
+  function resizeCanvas(c){let r=c.getBoundingClientRect();let d=window.devicePixelRatio||1;let w=Math.max(420,Math.floor(r.width)),h=Math.max(420,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d);let ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);}return {w,h};}
+  function ranges(){let xs=drawRows.map(r=>n(r.EW)),ys=drawRows.map(r=>n(r.NS)),zs=drawRows.map(r=>n(r.TVD));let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs);if(maxX===minX){maxX+=1;minX-=1}if(maxY===minY){maxY+=1;minY-=1}if(maxZ===minZ){maxZ+=1;minZ-=1}return {minX,maxX,minY,maxY,minZ,maxZ,cx:(minX+maxX)/2,cy:(minY+maxY)/2,cz:(minZ+maxZ)/2};}
+  let rr=ranges();
+  function stationText(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];return `MD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
+  function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°`;}
+  function transform(pt,w,h){
+    let scaleBase=Math.min(w,h)*0.62/Math.max(rr.maxX-rr.minX,rr.maxY-rr.minY,(rr.maxZ-rr.minZ)*0.55,1)*state3d.zoom;
+    let x=(n(pt.EW)-rr.cx), y=(n(pt.NS)-rr.cy), z=-(n(pt.TVD)-rr.cz)*0.55;
+    let cz=Math.cos(state3d.rotZ),sz=Math.sin(state3d.rotZ),cx=Math.cos(state3d.rotX),sx=Math.sin(state3d.rotX);
+    let x1=x*cz-y*sz, y1=x*sz+y*cz, z1=z;
+    let y2=y1*cx-z1*sx, z2=y1*sx+z1*cx;
+    return {x:w/2+x1*scaleBase,y:h/2-y2*scaleBase,z:z2,raw:pt};
+  }
+  function drawBox(ctx,w,h){
+    ctx.save();
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);
+
+    const left=Math.max(74,w*0.105), right=w-62, top=82, bottom=h-78;
+    const depthX=Math.min(128,w*0.15), depthY=-Math.min(92,h*0.13);
+    const front={tl:[left,top],tr:[right,top],br:[right,bottom],bl:[left,bottom]};
+    const back={tl:[left+depthX,top+depthY],tr:[right+depthX,top+depthY],br:[right+depthX,bottom+depthY],bl:[left+depthX,bottom+depthY]};
+    if(window._drillwiseTrajectoryView)window._drillwiseTrajectoryView.box={front,back,left,right,top,bottom,depthX,depthY};
+
+    function poly(points,fill,stroke,width){ctx.beginPath();points.forEach((p,i)=>{if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width||1;ctx.stroke();}}
+    function line(a,b,col,width,dash){ctx.save();ctx.strokeStyle=col;ctx.lineWidth=width||1;if(dash)ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();ctx.restore();}
+    function mix(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}
+
+    // Shaded volume: floor, roof, left wall, right wall, and back wall.
+    poly([front.bl,front.br,back.br,back.bl],'#eef7fb','#cfe4ec',1);
+    poly([front.tl,front.tr,back.tr,back.tl],'#f8fcff','#d9eaf1',1);
+    poly([front.tl,front.bl,back.bl,back.tl],'#fbfdfe','#d9eaf1',1);
+    poly([front.tr,front.br,back.br,back.tr],'#f5fbfd','#d9eaf1',1);
+    poly([back.tl,back.tr,back.br,back.bl],'#f7fbfd','#d9eaf1',1);
+
+    // Full grid on all visible box surfaces.
+    const g1='#e2edf3', g2='#d6e6ee', g3='#edf4f7';
+    for(let i=1;i<8;i++){
+      let t=i/8;
+      // front face
+      line(mix(front.tl,front.tr,t),mix(front.bl,front.br,t),g3,1);
+      line(mix(front.tl,front.bl,t),mix(front.tr,front.br,t),g3,1);
+      // back face
+      line(mix(back.tl,back.tr,t),mix(back.bl,back.br,t),g2,1);
+      line(mix(back.tl,back.bl,t),mix(back.tr,back.br,t),g2,1);
+      // floor grid
+      line(mix(front.bl,front.br,t),mix(back.bl,back.br,t),g1,1);
+      line(mix(front.bl,back.bl,t),mix(front.br,back.br,t),g1,1);
+      // roof grid
+      line(mix(front.tl,front.tr,t),mix(back.tl,back.tr,t),g3,1);
+      line(mix(front.tl,back.tl,t),mix(front.tr,back.tr,t),g3,1);
+      // side wall grids
+      line(mix(front.tl,front.bl,t),mix(back.tl,back.bl,t),g2,1);
+      line(mix(front.tr,front.br,t),mix(back.tr,back.br,t),g2,1);
+      line(mix(front.tl,back.tl,t),mix(front.bl,back.bl,t),g2,1);
+      line(mix(front.tr,back.tr,t),mix(front.br,back.br,t),g2,1);
+    }
+
+    // Strong outer frame in Harbour blue.
+    const axis='#003b5c';
+    [[front.tl,front.tr],[front.tr,front.br],[front.br,front.bl],[front.bl,front.tl],[back.tl,back.tr],[back.tr,back.br],[back.br,back.bl],[back.bl,back.tl],[front.tl,back.tl],[front.tr,back.tr],[front.br,back.br],[front.bl,back.bl]].forEach(pair=>line(pair[0],pair[1],axis,1.55));
+
+    ctx.fillStyle='#00a3c7';ctx.beginPath();ctx.arc(front.bl[0],front.bl[1],4,0,Math.PI*2);ctx.fill();
+    ctx.font='12px Segoe UI';ctx.fillStyle='#607987';ctx.fillText('3D trajectory grid | Drag to rotate | Wheel to zoom | Hover for station data',22,30);
+    ctx.font='11px Segoe UI';ctx.fillStyle=axis;ctx.fillText('EW',front.br[0]-18,front.br[1]+28);ctx.fillText('NS',back.bl[0]+8,back.bl[1]-10);ctx.fillText('TVD',front.bl[0]-46,front.bl[1]-8);
+    ctx.restore();
+  }
+  
+  function draw3d(){let dim=resizeCanvas(c3),w=dim.w,h=dim.h,ctx=c3.getContext('2d');ctx.clearRect(0,0,w,h);drawBox(ctx,w,h);let pts=drawRows.map(r=>transform(r,w,h));state3d.projected=pts;
+    ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#003b5c';ctx.lineWidth=4;ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});ctx.stroke();
+    ctx.fillStyle='#003b5c';let dotEvery=Math.max(1,Math.ceil(pts.length/95));pts.forEach((p,i)=>{if(i%dotEvery!==0&&i!==state3d.selected)return;ctx.beginPath();ctx.arc(p.x,p.y,i===state3d.selected?5:2.3,0,Math.PI*2);ctx.fill();});
+    let s=pts[state3d.selected], box=state3d.box;
+    if(s&&box){
+      let front=box.front, back=box.back;
+      // Station reference guide lines matching where the selected/hovered point sits in the well.
+      ctx.save();ctx.strokeStyle='rgba(0,163,199,.88)';ctx.lineWidth=1.35;ctx.setLineDash([6,4]);
+      let yFloor=front.bl[1], xLeft=front.bl[0], xRight=front.br[0];
+      ctx.beginPath();
+      ctx.moveTo(s.x,s.y);ctx.lineTo(s.x,yFloor);
+      ctx.moveTo(xLeft,s.y);ctx.lineTo(xRight,s.y);
+      ctx.moveTo(s.x,s.y);ctx.lineTo(Math.min(back.br[0],s.x+box.depthX*.72),Math.max(back.tr[1],s.y+box.depthY*.72));
+      ctx.stroke();
+      ctx.setLineDash([]);ctx.fillStyle='rgba(0,163,199,.16)';ctx.beginPath();ctx.ellipse(s.x,yFloor,10,4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(0,163,199,.95)';ctx.stroke();ctx.restore();
+      ctx.strokeStyle='#b91c1c';ctx.fillStyle='#b91c1c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.x,s.y,7,0,Math.PI*2);ctx.stroke();ctx.fillRect(s.x-1,s.y-1,2,2);
+      ctx.font='12px Segoe UI';let txt='MD '+fmt(s.raw.MD,0)+' m';let tw=ctx.measureText(txt).width+14;ctx.fillStyle='rgba(255,255,255,.92)';ctx.strokeStyle='#cfe4ec';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect?ctx.roundRect(s.x+12,s.y-26,tw,22,8):ctx.rect(s.x+12,s.y-26,tw,22);ctx.fill();ctx.stroke();ctx.fillStyle='#102a3a';ctx.fillText(txt,s.x+19,s.y-11);
+    }
+    ctx.restore();}
+  
+  function drawPlan(){let dim=resizeCanvas(cp),w=dim.w,h=dim.h,ctx=cp.getContext('2d');ctx.clearRect(0,0,w,h);ctx.save();ctx.fillStyle='#f8fcff';ctx.fillRect(12,12,w-24,h-24);ctx.strokeStyle='#d7e6ed';ctx.strokeRect(12,12,w-24,h-24);ctx.strokeStyle='#eef4f7';for(let i=1;i<6;i++){let x=12+i*(w-24)/6,y=12+i*(h-24)/6;ctx.beginPath();ctx.moveTo(x,12);ctx.lineTo(x,h-12);ctx.moveTo(12,y);ctx.lineTo(w-12,y);ctx.stroke();}
+    let pad=58,minX=rr.minX,maxX=rr.maxX,minY=rr.minY,maxY=rr.maxY,scale=Math.min((w-2*pad)/(maxX-minX),(h-2*pad)/(maxY-minY))*0.92,cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+    let pts=drawRows.map(r=>({x:w/2+(n(r.EW)-cx)*scale,y:h/2-(n(r.NS)-cy)*scale,raw:r}));state3d.planPts=pts;ctx.strokeStyle='#00a3c7';ctx.lineWidth=3;ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});ctx.stroke();let s=pts[state3d.selected];if(s){ctx.strokeStyle='#b91c1c';ctx.fillStyle='#b91c1c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.x,s.y,7,0,Math.PI*2);ctx.stroke();ctx.font='12px Segoe UI';ctx.fillText(`${fmt(s.raw.MD,0)} mMD`,s.x+10,s.y-8);}ctx.fillStyle='#607987';ctx.font='12px Segoe UI';ctx.fillText('Plan view',22,30);ctx.restore();}
+  function redraw(){draw3d();drawPlan();updateNote(state3d.selected)}
+  function nearest(list,ev,canvas,maxDist=18){let r=canvas.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,best=-1,bd=maxDist;list.forEach((p,i)=>{let d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=i}});return best;}
+  function select(i,ev){if(i<0)return;state3d.selected=i;redraw();if(ev)showPlotTip(ev,stationText(i));}
+  c3.onpointerdown=e=>{state3d.drag=true;state3d.lastX=e.clientX;state3d.lastY=e.clientY;c3.setPointerCapture&&c3.setPointerCapture(e.pointerId)};
+  c3.onpointerup=e=>{state3d.drag=false;try{c3.releasePointerCapture&&c3.releasePointerCapture(e.pointerId)}catch(_){}};
+  c3.onpointerleave=e=>{state3d.drag=false;hidePlotTip()};
+  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.35,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e)}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
+  c3.onclick=e=>{let i=nearest(state3d.projected,e,c3,24);if(i>=0)select(i,e)};
+  c3.addEventListener('wheel',e=>{try{e.preventDefault();state3d.zoom=Math.max(0.45,Math.min(3.2,state3d.zoom*(e.deltaY<0?1.08:0.92)));redraw();}catch(err){console.warn('3D wheel issue suppressed',err)}},{passive:false});
+  cp.onpointermove=e=>{let i=nearest(state3d.planPts,e,cp,18);if(i>=0)select(i,e);else hidePlotTip()};
+  cp.onclick=e=>{let i=nearest(state3d.planPts,e,cp,24);if(i>=0)select(i,e)};
+  cp.onpointerleave=()=>hidePlotTip();
+  window.addEventListener('resize',()=>{if(state.active==='wellpath')redraw()});
+  redraw();
+}
+
+function renderCapacity(){
+  let rows=[];
+  state.sections.forEach(s=>{
+    let lenMD=Math.max(0,n(s.ToMD)-n(s.FromMD));
+    rows.push({Section:s.Section,Hole_in:n(s.Hole),FromMD:n(s.FromMD),ToMD:n(s.ToMD),Length_m:lenMD,OpenHole_L_per_m:capLpm(n(s.Hole),0),OpenHole_m3:capLpm(n(s.Hole),0)*lenMD/1000,MW_SG:n(s.MW)});
+  });
+  let stringRows=state.strings.map(s=>({String:s.String,OD_in:n(s.OD),ID_in:n(s.ID),TopMD:n(s.TopMD),ShoeMD:n(s.ShoeMD),Length_m:Math.max(0,n(s.ShoeMD)-n(s.TopMD)),Internal_L_per_m:capLpm(n(s.ID),0),Internal_m3:capLpm(n(s.ID),0)*Math.max(0,n(s.ShoeMD)-n(s.TopMD))/1000}));
+  $('page-capacity').innerHTML=`<div class="card"><h3>Capacity</h3><p class="note">Capacity tab restored. Values are approximate from hole/casing dimensions in the tables.</p><h4>Open-hole section capacity</h4><div class="table-wrap">${table(rows)}</div></div><div class="card"><h3>Casing / liner internal capacity</h3><div class="table-wrap">${table(stringRows)}</div></div>`;
+}
+
+/* DrillWise v2.0 time depth tab patch applied */
+function tdBlankRow(){return {Activity:'',Section:'',FromMD:'',ToMD:'',FromTVD:'',ToTVD:'',DurationDays:'',Phase:'Drilling',Comments:''};}
+function tdRowsClean(){
+  if(!state.timeDepth)state.timeDepth=[];
+  return state.timeDepth.map(r=>({
+    Activity:String(r.Activity||''),Section:String(r.Section||''),
+    FromMD:n(r.FromMD),ToMD:n(r.ToMD),FromTVD:n(r.FromTVD),ToTVD:n(r.ToTVD),
+    DurationDays:n(r.DurationDays),Phase:String(r.Phase||''),Comments:String(r.Comments||'')
+  }));
+}
+function tdEditTable(){
+  if(!state.timeDepth)state.timeDepth=[];
+  let rows=state.timeDepth.length?state.timeDepth:[tdBlankRow()];
+  const cols=['Activity','Section','FromMD','ToMD','FromTVD','ToTVD','DurationDays','Phase','Comments'];
+  let html='<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+
+    rows.map((r,i)=>'<tr>'+cols.map(c=>'<td><input data-td-col="'+c+'" value="'+esc(r[c]??'')+'"></td>').join('')+'</tr>').join('')+
+    '</tbody></table>';
+  $('tdTable').innerHTML=html;
+}
+function tdReadTable(){
+  let rows=[];
+  let box=$('tdTable'); if(!box)return rows;
+  [...box.querySelectorAll('tbody tr')].forEach(tr=>{
+    let r={};
+    [...tr.querySelectorAll('input')].forEach(inp=>{let c=inp.dataset.tdCol, v=inp.value; r[c]=['Activity','Section','Phase','Comments'].includes(c)?v:n(v);});
+    if(Object.values(r).some(v=>String(v??'').trim()!==''))rows.push(r);
+  });
+  state.timeDepth=rows;
+  return rows;
+}
+function tdBuildFromSections(){
+  state.timeDepth=(state.sections||[]).map(s=>({
+    Activity:'Drill '+(s.Section||'section')+' section',Section:s.Section||'',
+    FromMD:n(s.FromMD),ToMD:n(s.ToMD),FromTVD:n(s.FromTVD),ToTVD:n(s.ToTVD),
+    DurationDays:'',Phase:'Drilling',Comments:''
+  }));
+  renderTimeDepth();
+}
+function tdAddRow(){tdReadTable();state.timeDepth.push(tdBlankRow());renderTimeDepth();}
+function tdClearRows(){state.timeDepth=[tdBlankRow()];renderTimeDepth();}
+function tdApply(){tdReadTable();drawTimeDepthPlot();tdMetrics();}
+function tdDownloadCSV(){
+  tdReadTable();let cols=['Activity','Section','FromMD','ToMD','FromTVD','ToTVD','DurationDays','Phase','Comments'];
+  let csv=cols.join(',')+'\n'+(state.timeDepth||[]).map(r=>cols.map(c=>'"'+String(r[c]??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='DrillWise_time_depth.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+function tdParseCSV(text){
+  let rows=text.split(/\r?\n/).filter(l=>l.trim()); if(!rows.length)return [];
+  let parseLine=line=>{let out=[],cur='',q=false;for(let i=0;i<line.length;i++){let ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++;}else q=!q;}else if(ch===','&&!q){out.push(cur);cur='';}else cur+=ch;}out.push(cur);return out;};
+  let h=parseLine(rows[0]).map(x=>x.trim());
+  return rows.slice(1).map(l=>{let v=parseLine(l),o={};h.forEach((k,i)=>o[k]=v[i]??'');return o;});
+}
+async function tdImportFile(inp){
+  let f=inp&&inp.files&&inp.files[0]; if(!f)return;
+  try{
+    let raw=[];
+    if(/\.xlsx?$/i.test(f.name) && typeof ensureXLSX==='function'){
+      let X=await ensureXLSX();let wb=X.read(await f.arrayBuffer(),{type:'array'});let ws=wb.Sheets[wb.SheetNames[0]];
+      raw=X.utils.sheet_to_json(ws,{defval:''});
+    } else raw=tdParseCSV(await f.text());
+    let pick=(r,names)=>{let keys=Object.keys(r);let k=keys.find(k=>names.some(n=>k.toLowerCase().replace(/[^a-z0-9]/g,'').includes(n)));return k?r[k]:''};
+    state.timeDepth=raw.map(r=>({
+      Activity:pick(r,['activity','operation','task']),Section:pick(r,['section','hole']),
+      FromMD:pick(r,['frommd','startmd']),ToMD:pick(r,['tomd','endmd']),FromTVD:pick(r,['fromtvd','starttvd']),ToTVD:pick(r,['totvd','endtvd']),
+      DurationDays:pick(r,['durationdays','days','duration']),Phase:pick(r,['phase','category']),Comments:pick(r,['comments','note','remarks'])
+    })).filter(r=>Object.values(r).some(v=>String(v??'').trim()!==''));
+    renderTimeDepth();
+  }catch(e){let el=$('tdImportStatus');if(el)el.textContent='Import failed: '+e.message+'. Try CSV with the standard columns.';}
+}
+function tdPlotRows(basis){
+  let rows=tdRowsClean().filter(r=>Number.isFinite(r.DurationDays)&&r.DurationDays>=0);
+  let cum=0,out=[];
+  rows.forEach((r,i)=>{
+    let from=basis==='MD'?r.FromMD:r.FromTVD, to=basis==='MD'?r.ToMD:r.ToTVD;
+    if(!Number.isFinite(from)||!Number.isFinite(to))return;
+    out.push({day:cum,depth:from,row:r,type:'start'});
+    cum+=r.DurationDays;
+    out.push({day:cum,depth:to,row:r,type:'end'});
+  });
+  return out;
+}
+function tdMetrics(){
+  let rows=tdRowsClean(),total=rows.reduce((a,r)=>a+(Number.isFinite(r.DurationDays)?r.DurationDays:0),0),drill=rows.filter(r=>String(r.Phase).toLowerCase().includes('drill')).reduce((a,r)=>a+(Number.isFinite(r.DurationDays)?r.DurationDays:0),0),flat=total-drill;
+  let td=Math.max(0,...rows.map(r=>Math.max(Number.isFinite(r.ToMD)?r.ToMD:0,Number.isFinite(r.ToTVD)?r.ToTVD:0)));
+  $('tdMetrics').innerHTML=[['Total planned days',total,'days'],['Drilling days',drill,'days'],['Flat / other days',flat,'days'],['Planned TD',td,'m']].map(m=>'<div class="metric"><span class="note">'+m[0]+'</span><br><b>'+fmt(m[1],m[0].includes('days')?1:0)+'</b> '+m[2]+'</div>').join('');
+}
+function drawTimeDepthPlot(){
+  let basis=($('tdBasis')&&$('tdBasis').value)||'MD', showShoes=($('tdShoes')&&$('tdShoes').checked)!==false;
+  let pts=tdPlotRows(basis), rows=tdRowsClean();
+  let W=1411,H=900,L=96,R=190,T=54,B=82,w=W-L-R,h=H-T-B;
+  let maxDay=Math.max(1,...pts.map(p=>p.day));
+  let maxDepth=Math.max(100,...pts.map(p=>p.depth),...state.strings.map(s=>basis==='MD'?n(s.ShoeMD):n(s.ShoeTVD)));
+  let X=d=>L+d/maxDay*w, Y=dep=>T+dep/maxDepth*h;
+  let svg=[];
+  svg.push('<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:1411px;min-width:760px;height:auto;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block" xmlns="http://www.w3.org/2000/svg"><rect width="'+W+'" height="'+H+'" fill="white"/>');
+  svg.push('<text x="'+L+'" y="'+(T-18)+'" font-family="Segoe UI" font-size="17" font-weight="700" fill="#102a3a">Time vs Depth</text>');
+  for(let d=0;d<=maxDay+.001;d+=Math.max(1,Math.ceil(maxDay/10))){svg.push('<line x1="'+X(d)+'" y1="'+T+'" x2="'+X(d)+'" y2="'+(T+h)+'" stroke="#e5eef2"/><text x="'+(X(d)-8)+'" y="'+(T+h+24)+'" font-family="Segoe UI" font-size="11" fill="#607987">'+fmt(d,0)+'</text>')}
+  for(let dep=0;dep<=maxDepth;dep+=500){svg.push('<line x1="'+L+'" y1="'+Y(dep)+'" x2="'+(L+w)+'" y2="'+Y(dep)+'" stroke="#e5eef2"/><text x="'+(L-64)+'" y="'+(Y(dep)+4)+'" font-family="Segoe UI" font-size="11" fill="#607987">'+fmt(dep,0)+'</text>')}
+  svg.push('<rect x="'+L+'" y="'+T+'" width="'+w+'" height="'+h+'" fill="none" stroke="#102a3a"/>');
+  const phaseColour=p=>{p=String(p||'').toLowerCase(); if(p.includes('case'))return '#737373'; if(p.includes('cement'))return '#00a3c7'; if(p.includes('complete'))return '#107c41'; if(p.includes('flat')||p.includes('bop')||p.includes('wellhead'))return '#ff7f0e'; return '#003b5c';};
+  for(let i=0;i<pts.length-1;i+=2){let a=pts[i],b=pts[i+1],col=phaseColour(a.row.Phase),tip=(a.row.Activity||'Activity')+' | '+(a.row.Section||'')+' | Day '+fmt(a.day,1)+'-'+fmt(b.day,1)+' | '+basis+' '+fmt(a.depth,0)+'-'+fmt(b.depth,0)+' m | '+fmt(a.row.DurationDays,1)+' days | '+(a.row.Phase||'');svg.push('<line x1="'+X(a.day)+'" y1="'+Y(a.depth)+'" x2="'+X(b.day)+'" y2="'+Y(b.depth)+'" stroke="'+col+'" stroke-width="3" data-tip="'+esc(tip)+'" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><circle cx="'+X(b.day)+'" cy="'+Y(b.depth)+'" r="4" fill="'+col+'"><title>'+esc(tip)+'</title></circle>')}
+  if(showShoes){state.strings.forEach(s=>{let dep=basis==='MD'?n(s.ShoeMD):n(s.ShoeTVD);if(Number.isFinite(dep)&&dep>0){let label=(s.String||'')+(s.Label?' - '+s.Label:'');let tip=label+' | '+basis+' '+fmt(dep,0)+' m';svg.push('<line x1="'+L+'" y1="'+Y(dep)+'" x2="'+(L+w)+'" y2="'+Y(dep)+'" stroke="#003b5c" stroke-width="1" stroke-dasharray="6,5" data-tip="'+esc(tip)+'" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><text x="'+(L+w+10)+'" y="'+(Y(dep)-3)+'" font-family="Segoe UI" font-size="11" fill="#003b5c">'+esc(label)+'</text>')}})}
+  svg.push('<text x="'+(L+w/2-45)+'" y="'+(H-30)+'" font-family="Segoe UI" font-size="11" fill="#102a3a">Days from start</text><text transform="translate(24 '+(T+h/2)+') rotate(-90)" font-family="Segoe UI" font-size="11" fill="#102a3a">'+basis+' m</text></svg>');
+  $('tdPlot').innerHTML=svg.join('');
+  tdMetrics();
+}
+function renderTimeDepth(){
+  if(!state.timeDepth)state.timeDepth=[];
+  $('page-timeDepth').innerHTML='<div class="card"><h3>Time vs Depth</h3><p class="note">Activity-based time-depth plot. Use Build draft from section table to create rows from the current well sections, then fill in duration days and phases.</p><div class="actions"><button class="dark" onclick="tdBuildFromSections()">Build draft from section table</button><button onclick="tdAddRow()">Add row</button><button onclick="tdClearRows()">Clear rows</button><button class="dark" onclick="tdApply()">Apply table + update plot</button><button onclick="tdDownloadCSV()">Download CSV</button><label style="margin:0"><input type="file" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="tdImportFile(this)"><span style="display:inline-block;border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer">Import CSV/Excel</span></label></div><p id="tdImportStatus" class="note"></p><div class="grid3" style="margin-top:10px"><label>Depth basis<select id="tdBasis" onchange="tdApply()"><option>MD</option><option>TVD</option></select></label><label style="display:flex;align-items:center;gap:8px;margin-top:22px"><input id="tdShoes" type="checkbox" checked style="width:auto" onchange="tdApply()"> Show casing shoes</label></div></div><div id="tdMetrics" class="grid3"></div><div class="card"><h3>Time-depth activity table</h3><div class="table-wrap" id="tdTable"></div></div><div class="card"><h3>Time vs Depth plot</h3><div id="tdPlot" class="plot"></div></div>';
+  tdEditTable();drawTimeDepthPlot();
+}
+function renderExport(){$('page-export').innerHTML='<div class="card"><h3>Checks</h3>'+table([{Check:'Upload boxes',Status:'Side by side'},{Check:'Hidden corner smiley',Status:'Added'},{Check:'Wellpath tab',Status:'Restored'},{Check:'Capacity tab',Status:'Restored'},{Check:'Riser plot',Status:'Unchanged SVG path'},{Check:'Gas plot',Status:'Unchanged SVG path'},{Check:'Kick tolerance',Status:'Detailed version'}])+'</div>'}
+/* DrillWise v1.6.2 save clear schematic patch applied */
+(function(){
+  const SAVE_KEY='DrillWise_saved_well_v1_6_2';
+  function clone(o){return JSON.parse(JSON.stringify(o||{}));}
+  function blankString(){return {String:'',Type:'',TopTVD:'',ShoeTVD:'',TopMD:'',ShoeMD:'',TopCementMD:'',OD:'',ID:'',Label:''};}
+  function blankSection(){return {Section:'',Hole:'',FromTVD:'',ToTVD:'',FromMD:'',ToMD:'',MW:'',RM:false};}
+  function safeRead(){try{if($('caseName'))state.general.caseName=$('caseName').value;if($('waterDepth'))state.general.waterDepth=n($('waterDepth').value);if($('airGap'))state.general.airGap=n($('airGap').value);if($('swDensity'))state.general.swDensity=n($('swDensity').value);if($('requiredOB'))state.general.requiredOB=n($('requiredOB').value);if($('stringsTable'))state.strings=readEdit('stringsTable');if($('sectionsTable'))state.sections=readEdit('sectionsTable');}catch(e){console.warn('v1.6.2 input read skipped',e)}}
+  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos)}}
+  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};render();}
+  window.drillwiseSaveWell=function(){localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));drillwiseSetSaveStatus('Saved current well in this browser.');};
+  window.drillwiseLoadWell=function(){let txt=localStorage.getItem(SAVE_KEY);if(!txt){drillwiseSetSaveStatus('No saved well found in this browser.');return;}try{restore(JSON.parse(txt));drillwiseSetSaveStatus('Loaded saved well from this browser.')}catch(e){drillwiseSetSaveStatus('Could not load saved well: '+e.message)}};
+  window.drillwiseDownloadWell=function(){let data=JSON.stringify(snapshot(),null,2);let name=(state.general&&state.general.caseName?String(state.general.caseName):'DrillWise_well').replace(/[^a-z0-9_-]+/gi,'_');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);drillwiseSetSaveStatus('Downloaded well JSON.');};
+  window.drillwiseImportWell=function(inp){let f=inp&&inp.files&&inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{restore(JSON.parse(String(r.result||'')));drillwiseSetSaveStatus('Imported well JSON: '+f.name)}catch(e){drillwiseSetSaveStatus('Import failed: '+e.message)}};r.readAsText(f);};
+  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.ppfg=[];state.wp=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.schematicLabelPos={};render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
+  window.drillwiseAddCasingRow=function(){safeRead();state.strings.push(blankString());renderInput();};
+  window.drillwiseAddSectionRow=function(){safeRead();state.sections.push(blankSection());renderInput();};
+  window.drillwiseApplyAndViewSchematic=function(){safeRead();state.active='schematic';render();};
+  window.drillwiseSetSaveStatus=function(msg){let el=$('dwSaveStatus');if(el)el.textContent=msg;};
+  function addPanel(){let page=$('page-input');if(!page||$('dwSaveClearCard'))return;let card=document.createElement('div');card.className='card';card.id='dwSaveClearCard';card.innerHTML='<h3>Save / start new well</h3><p class="note">Save, import/export, clear all, and force the schematic to use the latest casing, shoe depth and TopCementMD table values.</p><div class="actions"><button class="dark" onclick="drillwiseSaveWell()">Save current well</button><button onclick="drillwiseLoadWell()">Load saved well</button><button onclick="drillwiseDownloadWell()">Download well JSON</button><label style="margin:0"><input type="file" accept=".json" style="display:none" onchange="drillwiseImportWell(this)"><span style="display:inline-block;border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer">Import JSON</span></label><button onclick="drillwiseClearAll()">Clear all / start from scratch</button><button onclick="drillwiseAddCasingRow()">Add casing row</button><button onclick="drillwiseAddSectionRow()">Add section row</button><button class="dark" onclick="drillwiseApplyAndViewSchematic()">Apply + view schematic</button></div><p id="dwSaveStatus" class="note"></p>';let first=page.querySelector('.grid');if(first&&first.nextSibling)page.insertBefore(card,first.nextSibling);else page.prepend(card);}
+  function bind(){let page=$('page-input');if(!page)return;page.querySelectorAll('input:not([type=file]),select').forEach(el=>{if(el.dataset.dwV162Bound)return;el.dataset.dwV162Bound='1';el.addEventListener('change',safeRead);el.addEventListener('blur',safeRead);});}
+  if(typeof renderInput==='function'&&!window._dwV162RenderInputWrapped){const old=renderInput;window.renderInput=renderInput=function(){old();addPanel();bind();};window._dwV162RenderInputWrapped=true;}
+})();
+if(!state.timeDepth)state.timeDepth=[];render();</script><button id="cornerSmiley" title="Click for a drilling joke" onclick="newDrillingJoke()">🙂</button><div id="cornerJoke"></div><div id="plotTooltip" class="plot-tooltip"></div></body></html>
