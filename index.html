@@ -287,9 +287,45 @@ function downsampleTrajectoryRows(rows,maxPts=350){
   for(let i=0;i<maxPts;i++){out.push(rows[Math.round(i*step)])}
   return out;
 }
+function shortestAngleDelta(a,b){return((b-a+540)%360)-180;}
+function minCurveStep(md1,inc1,azi1,ns1,ew1,tvd1,md2,inc2,azi2){
+  let toRad=Math.PI/180, i1=inc1*toRad, a1=azi1*toRad, i2=inc2*toRad, a2=azi2*toRad, dmd=md2-md1;
+  if(!(dmd>0))return {NS:ns1,EW:ew1,TVD:tvd1};
+  let cosDL=Math.cos(i2-i1)-Math.sin(i1)*Math.sin(i2)*(1-Math.cos(a2-a1));
+  cosDL=Math.max(-1,Math.min(1,cosDL));
+  let dl=Math.acos(cosDL), rf=dl>1e-6?(2/dl)*Math.tan(dl/2):1;
+  return {
+    NS:ns1+(dmd/2)*(Math.sin(i1)*Math.cos(a1)+Math.sin(i2)*Math.cos(a2))*rf,
+    EW:ew1+(dmd/2)*(Math.sin(i1)*Math.sin(a1)+Math.sin(i2)*Math.sin(a2))*rf,
+    TVD:tvd1+(dmd/2)*(Math.cos(i1)+Math.cos(i2))*rf
+  };
+}
+function densifyTrajectory(rows,spacingM=8,maxStepsPerLeg=24){
+  rows=rows||[];
+  if(rows.length<2)return rows.slice();
+  let out=[rows[0]];
+  for(let idx=0;idx<rows.length-1;idx++){
+    let a=rows[idx], b=rows[idx+1], dmd=n(b.MD)-n(a.MD);
+    if(!(dmd>0)){out.push(b);continue}
+    let haveAngles=Number.isFinite(n(a.Inc))&&Number.isFinite(n(a.Azimuth))&&Number.isFinite(n(b.Inc))&&Number.isFinite(n(b.Azimuth));
+    let steps=Math.max(1,Math.min(maxStepsPerLeg,Math.round(dmd/spacingM)));
+    for(let k=1;k<=steps;k++){
+      let t=k/steps, md=n(a.MD)+dmd*t;
+      if(haveAngles){
+        let inc=n(a.Inc)+(n(b.Inc)-n(a.Inc))*t;
+        let azi=n(a.Azimuth)+shortestAngleDelta(n(a.Azimuth),n(b.Azimuth))*t;
+        let p=minCurveStep(n(a.MD),n(a.Inc),n(a.Azimuth),n(a.NS),n(a.EW),n(a.TVD),md,inc,azi);
+        out.push({MD:md,TVD:p.TVD,Inc:inc,Azimuth:((azi%360)+360)%360,NS:p.NS,EW:p.EW});
+      } else {
+        out.push({MD:md,TVD:n(a.TVD)+(n(b.TVD)-n(a.TVD))*t,Inc:n(b.Inc),Azimuth:n(b.Azimuth),NS:n(a.NS)+(n(b.NS)-n(a.NS))*t,EW:n(a.EW)+(n(b.EW)-n(a.EW))*t});
+      }
+    }
+  }
+  return out;
+}
 function initNativeTrajectory(rows){
   let fullRows=(rows||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))&&Number.isFinite(n(r.NS))&&Number.isFinite(n(r.EW)));
-  let drawRows=downsampleTrajectoryRows(fullRows,350);
+  let drawRows=downsampleTrajectoryRows(densifyTrajectory(fullRows),600);
   let c3=$('traj3dCanvas'), cp=$('trajPlanCanvas');
   if(!c3||!cp||!drawRows.length)return;
   let state3d={rows:drawRows,fullRows:fullRows,rotZ:-0.75,rotX:0.72,zoom:1.0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
