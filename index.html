@@ -59,15 +59,37 @@ function schemLabel(key,x,y,text,size=13,colour='#06263a',weight='normal'){
   return `<text class="schem-label" data-key="${esc(key)}" x="${x+(p.dx||0)}" y="${y+(p.dy||0)}" font-family="Segoe UI, Arial" font-size="${size}" font-weight="${weight}" fill="${colour}" style="cursor:move;user-select:none">${esc(text)}</text>`;
 }
 function resetSchematicLabels(){state.schematicLabelPos={};drawSchematic()}
+function addShoeLeaderLines(anchors){
+  let svg=document.querySelector('#schematicPlot svg'); if(!svg)return;
+  anchors.forEach(a=>{
+    let el=svg.querySelector('[data-key="'+CSS.escape(a.key)+'"]'); if(!el)return;
+    let box=el.getBBox();
+    let line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('class','shoe-leader');
+    line.setAttribute('data-leader-for',a.key);
+    line.setAttribute('x1',box.x+box.width+6);
+    line.setAttribute('y1',box.y+box.height/2);
+    line.setAttribute('x2',a.x);
+    line.setAttribute('y2',a.y);
+    line.setAttribute('stroke','#9aa7ad');
+    line.setAttribute('stroke-width','1');
+    line.setAttribute('stroke-dasharray','2,3');
+    svg.insertBefore(line,el);
+  });
+}
 function makeSchematicLabelsDraggable(){
   let svg=document.querySelector('#schematicPlot svg'); if(!svg)return;
-  let active=null,start={x:0,y:0},orig={x:0,y:0};
+  let active=null,activeLine=null,start={x:0,y:0},orig={x:0,y:0},origLine={x1:0,y1:0};
   function pt(evt){let p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
   svg.querySelectorAll('.schem-label').forEach(el=>{
-    el.addEventListener('mousedown',evt=>{evt.preventDefault();active=el;let p=pt(evt);start={x:p.x,y:p.y};orig={x:n(el.getAttribute('x')),y:n(el.getAttribute('y'))};});
+    el.addEventListener('mousedown',evt=>{
+      evt.preventDefault();active=el;let p=pt(evt);start={x:p.x,y:p.y};orig={x:n(el.getAttribute('x')),y:n(el.getAttribute('y'))};
+      activeLine=svg.querySelector('[data-leader-for="'+CSS.escape(el.dataset.key)+'"]');
+      origLine=activeLine?{x1:n(activeLine.getAttribute('x1')),y1:n(activeLine.getAttribute('y1'))}:{x1:0,y1:0};
+    });
   });
-  window.addEventListener('mousemove',evt=>{if(!active)return;let p=pt(evt),nx=orig.x+p.x-start.x,ny=orig.y+p.y-start.y;active.setAttribute('x',nx);active.setAttribute('y',ny)});
-  window.addEventListener('mouseup',()=>{if(!active)return;let k=active.dataset.key,base=active.__base||null;if(!state.schematicLabelPos)state.schematicLabelPos={};state.schematicLabelPos[k]={dx:n(active.getAttribute('x'))-(n(active.dataset.baseX)||0),dy:n(active.getAttribute('y'))-(n(active.dataset.baseY)||0)};active=null;});
+  window.addEventListener('mousemove',evt=>{if(!active)return;let p=pt(evt),nx=orig.x+p.x-start.x,ny=orig.y+p.y-start.y;active.setAttribute('x',nx);active.setAttribute('y',ny);if(activeLine){activeLine.setAttribute('x1',origLine.x1+(nx-orig.x));activeLine.setAttribute('y1',origLine.y1+(ny-orig.y))}});
+  window.addEventListener('mouseup',()=>{if(!active)return;let k=active.dataset.key,base=active.__base||null;if(!state.schematicLabelPos)state.schematicLabelPos={};state.schematicLabelPos[k]={dx:n(active.getAttribute('x'))-(n(active.dataset.baseX)||0),dy:n(active.getAttribute('y'))-(n(active.dataset.baseY)||0)};active=null;activeLine=null;});
   svg.querySelectorAll('.schem-label').forEach(el=>{if(!el.dataset.baseX){el.dataset.baseX=el.getAttribute('x');el.dataset.baseY=el.getAttribute('y')}});
 }
 function drawSchematic(){
@@ -98,6 +120,7 @@ function drawSchematic(){
   });
 
   let shoeLabelX=Math.max(40,cx-half(maxOD)-275);
+  let shoeAnchors=[];
   state.strings.slice().sort((a,b)=>n(b.OD)-n(a.OD)).forEach((s,idx)=>{
     let hp=half(s.OD), yt=Y(s.TopTVD), yb=Y(s.ShoeTVD), type=String(s.Type||'').toLowerCase();
     let dash=type.includes('tieback')?'stroke-dasharray="7,5"':'';
@@ -106,6 +129,7 @@ function drawSchematic(){
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD), n(s.OD)%1===0?0:3):'';
     let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'');
     svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,14,dark));
+    shoeAnchors.push({key:'shoe_'+idx,x:cx-hp,y:yb});
     if(type.includes('liner')){
       let prev=state.strings.filter(p=>n(p.ShoeTVD)<n(s.TopTVD)&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.ShoeTVD)-n(b.ShoeTVD)).pop();
       let outer=prev?half(prev.OD):hp+36, ylt=Y(s.TopTVD);
@@ -139,6 +163,7 @@ function drawSchematic(){
   svg.push(`<path d="${pathL}" fill="none" stroke="#777" stroke-width="3"/><path d="${pathR}" fill="none" stroke="#777" stroke-width="3"/>`);
   svg.push(`</svg>`);
   $('schematicPlot').innerHTML=svg.join('');
+  addShoeLeaderLines(shoeAnchors);
   makeSchematicLabelsDraggable();
 }
 
