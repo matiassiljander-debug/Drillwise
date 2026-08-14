@@ -157,10 +157,16 @@ function drawSchematic(){
     }
   });
 
-  let deepest=Math.max(...state.strings.map(s=>n(s.ShoeTVD)||0));
-  let yTop=Y(deepest), yBot=Y(td), amp=8, left=cx-49, right=cx+49, pathL='', pathR='';
-  for(let y=yTop;y<=yBot;y+=18){let off=Math.sin((y-yTop)/18)*amp;pathL+=(pathL?' L':'M')+(left+off)+','+y;pathR+=(pathR?' L':'M')+(right-off)+','+y}
-  svg.push(`<path d="${pathL}" fill="none" stroke="#777" stroke-width="3"/><path d="${pathR}" fill="none" stroke="#777" stroke-width="3"/>`);
+  let deepestString=state.strings.slice().sort((a,b)=>n(b.ShoeTVD)-n(a.ShoeTVD))[0];
+  let deepest=deepestString?n(deepestString.ShoeTVD):0;
+  let openHoleHalf=deepestString?half(n(deepestString.OD)):half(maxOD)*0.4;
+  let yTop=Y(deepest), yBot=Y(td);
+  if(yBot>yTop){
+    let amp=Math.min(9,openHoleHalf*0.18), left=cx-openHoleHalf, right=cx+openHoleHalf, pathL='', pathR='';
+    let waves=Math.max(2,Math.min(10,Math.round((yBot-yTop)/80))), period=(yBot-yTop)/waves, step=Math.max(4,period/8);
+    for(let y=yTop;y<=yBot;y+=step){let off=Math.sin((y-yTop)/period*2*Math.PI)*amp;pathL+=(pathL?' L':'M')+(left+off)+','+y;pathR+=(pathR?' L':'M')+(right-off)+','+y}
+    svg.push(`<path d="${pathL}" fill="none" stroke="#777" stroke-width="3"/><path d="${pathR}" fill="none" stroke="#777" stroke-width="3"/>`);
+  }
   svg.push(`</svg>`);
   $('schematicPlot').innerHTML=svg.join('');
   addShoeLeaderLines(shoeAnchors);
