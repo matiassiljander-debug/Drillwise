@@ -273,7 +273,7 @@ function loadPlotlyTrajectory(cb){
 }
 function renderWellpath(){
   let rows=trajectoryRows();
-  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="grid"><div class="card"><h3>3D trajectory</h3><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="grid"><div class="card"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
   drawWellpathViews(rows);
 }
 function drawWellpathViews(rows){
@@ -292,28 +292,56 @@ function initNativeTrajectory(rows){
   let drawRows=downsampleTrajectoryRows(fullRows,350);
   let c3=$('traj3dCanvas'), cp=$('trajPlanCanvas');
   if(!c3||!cp||!drawRows.length)return;
-  let state3d={rows:drawRows,fullRows:fullRows,rotZ:-0.75,rotX:0.72,zoom:1.0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
-  window._drillwiseTrajectoryView=state3d;
-  function resizeCanvas(c){let r=c.getBoundingClientRect();let d=window.devicePixelRatio||1;let w=Math.max(420,Math.floor(r.width)),h=Math.max(420,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d);let ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);}return {w,h};}
   function ranges(){let xs=drawRows.map(r=>n(r.EW)),ys=drawRows.map(r=>n(r.NS)),zs=drawRows.map(r=>n(r.TVD));let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs);if(maxX===minX){maxX+=1;minX-=1}if(maxY===minY){maxY+=1;minY-=1}if(maxZ===minZ){maxZ+=1;minZ-=1}return {minX,maxX,minY,maxY,minZ,maxZ,cx:(minX+maxX)/2,cy:(minY+maxY)/2,cz:(minZ+maxZ)/2};}
   let rr=ranges();
+  // Default camera: side-on along the well's overall departure direction, with
+  // the surface (shallowest TVD) at the top of the box - matches how a
+  // vertical-section trajectory plot is normally read.
+  let first=drawRows[0], deepest=drawRows.reduce((a,b)=>n(b.TVD)>n(a.TVD)?b:a,drawRows[0]);
+  let depEW=n(deepest.EW)-n(first.EW), depNS=n(deepest.NS)-n(first.NS);
+  let rotZ0=(Math.abs(depEW)>1e-6||Math.abs(depNS)>1e-6)?-Math.atan2(depNS,depEW):0;
+  let rotX0=-Math.PI/2;
+  // Horizontal scale is calibrated from the actual spread along the rotated
+  // (departure) axis, not a generic EW/NS extent - a curved path can wander
+  // less than its raw EW/NS bounding box once rotated to face-on.
+  let rotCos0=Math.cos(rotZ0), rotSin0=Math.sin(rotZ0);
+  let rotatedXs=drawRows.map(r=>(n(r.EW)-rr.cx)*rotCos0-(n(r.NS)-rr.cy)*rotSin0);
+  let rotatedXSpan=Math.max(1,Math.max(...rotatedXs)-Math.min(...rotatedXs));
+  let state3d={rows:drawRows,fullRows:fullRows,rotZ:rotZ0,rotX:rotX0,zoom:1.0,rotZ0,rotX0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
+  window._drillwiseTrajectoryView=state3d;
+  window._drillwiseTrajectoryReset=function(){state3d.rotZ=state3d.rotZ0;state3d.rotX=state3d.rotX0;state3d.zoom=1.0;redraw();};
+  function resizeCanvas(c){let r=c.getBoundingClientRect();let d=window.devicePixelRatio||1;let w=Math.max(420,Math.floor(r.width)),h=Math.max(420,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d);let ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);}return {w,h};}
   function stationText(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];return `MD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
   function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°`;}
-  function transform(pt,w,h){
-    let scaleBase=Math.min(w,h)*0.62/Math.max(rr.maxX-rr.minX,rr.maxY-rr.minY,(rr.maxZ-rr.minZ)*0.55,1)*state3d.zoom;
-    let x=(n(pt.EW)-rr.cx), y=(n(pt.NS)-rr.cy), z=-(n(pt.TVD)-rr.cz)*0.55;
-    let cz=Math.cos(state3d.rotZ),sz=Math.sin(state3d.rotZ),cx=Math.cos(state3d.rotX),sx=Math.sin(state3d.rotX);
-    let x1=x*cz-y*sz, y1=x*sz+y*cz, z1=z;
+  function transform(pt,w,h,tvdOverride){
+    let box=state3d.box||{left:0,right:w,top:0,bottom:h};
+    let boxW=Math.max(60,box.right-box.left), boxH=Math.max(60,box.bottom-box.top);
+    let originX=(box.left+box.right)/2, originY=(box.top+box.bottom)/2;
+    // TVD and horizontal (EW/NS) axes are scaled independently - rather than
+    // fitting all three into one uniform scale - so TVD always fills the
+    // box's height exactly (matching the left-edge tick labels) and reads
+    // as the dominant axis, like a real trajectory plot, regardless of how
+    // wide the well's horizontal departure is.
+    let sxy=boxW*0.78/rotatedXSpan*state3d.zoom;
+    let sz=boxH/Math.max(rr.maxZ-rr.minZ,1)*state3d.zoom;
+    let tvd=Number.isFinite(tvdOverride)?tvdOverride:n(pt.TVD);
+    let x=(n(pt.EW)-rr.cx)*sxy, y=(n(pt.NS)-rr.cy)*sxy, z=-(tvd-rr.cz)*sz;
+    let cz=Math.cos(state3d.rotZ),sz2=Math.sin(state3d.rotZ),cx=Math.cos(state3d.rotX),sx=Math.sin(state3d.rotX);
+    let x1=x*cz-y*sz2, y1=x*sz2+y*cz, z1=z;
     let y2=y1*cx-z1*sx, z2=y1*sx+z1*cx;
-    return {x:w/2+x1*scaleBase,y:h/2-y2*scaleBase,z:z2,raw:pt};
+    return {x:originX+x1,y:originY-y2,z:z2,raw:pt};
   }
   function drawBox(ctx,w,h){
     ctx.save();
     ctx.clearRect(0,0,w,h);
     ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);
 
-    const left=Math.max(74,w*0.105), right=w-62, top=82, bottom=h-78;
-    const depthX=Math.min(128,w*0.15), depthY=-Math.min(92,h*0.13);
+    // Tall, narrow box so TVD reads as the dominant axis, like a vertical
+    // section, rather than a roughly cubic box.
+    const boxH=Math.max(260,h-118), boxW=Math.min(w-96,boxH*0.6);
+    const top=Math.max(78,(h-boxH)/2-6), bottom=top+boxH;
+    const left=w/2-boxW/2, right=w/2+boxW/2;
+    const depthX=Math.min(64,boxW*0.22), depthY=-Math.min(50,boxH*0.08);
     const front={tl:[left,top],tr:[right,top],br:[right,bottom],bl:[left,bottom]};
     const back={tl:[left+depthX,top+depthY],tr:[right+depthX,top+depthY],br:[right+depthX,bottom+depthY],bl:[left+depthX,bottom+depthY]};
     if(window._drillwiseTrajectoryView)window._drillwiseTrajectoryView.box={front,back,left,right,top,bottom,depthX,depthY};
@@ -356,13 +384,30 @@ function initNativeTrajectory(rows){
     const axis='#003b5c';
     [[front.tl,front.tr],[front.tr,front.br],[front.br,front.bl],[front.bl,front.tl],[back.tl,back.tr],[back.tr,back.br],[back.br,back.bl],[back.bl,back.tl],[front.tl,back.tl],[front.tr,back.tr],[front.br,back.br],[front.bl,back.bl]].forEach(pair=>line(pair[0],pair[1],axis,1.55));
 
+    // Numbered TVD ticks down the left edge, matching the default (reset)
+    // camera angle - the box frame itself doesn't rotate with the data, so
+    // these describe the reset view rather than tracking a rotated one.
+    ctx.font='11px Segoe UI';ctx.fillStyle='#4f6f82';ctx.textAlign='right';
+    let ticks=6, tvdSpan=rr.maxZ-rr.minZ;
+    for(let i=0;i<=ticks;i++){
+      let t=i/ticks, tvdVal=rr.minZ+tvdSpan*t, y=top+(bottom-top)*t;
+      ctx.fillText(fmt(tvdVal,0),left-9,y+4);
+      ctx.strokeStyle='#cfe4ec';ctx.beginPath();ctx.moveTo(left-5,y);ctx.lineTo(left,y);ctx.stroke();
+    }
+    ctx.textAlign='left';
+
     ctx.fillStyle='#00a3c7';ctx.beginPath();ctx.arc(front.bl[0],front.bl[1],4,0,Math.PI*2);ctx.fill();
-    ctx.font='12px Segoe UI';ctx.fillStyle='#607987';ctx.fillText('3D trajectory grid | Drag to rotate | Wheel to zoom | Hover for station data',22,30);
-    ctx.font='11px Segoe UI';ctx.fillStyle=axis;ctx.fillText('EW',front.br[0]-18,front.br[1]+28);ctx.fillText('NS',back.bl[0]+8,back.bl[1]-10);ctx.fillText('TVD',front.bl[0]-46,front.bl[1]-8);
+    ctx.font='12px Segoe UI';ctx.fillStyle='#607987';ctx.fillText('3D trajectory | Drag to rotate | Wheel to zoom | Hover for station data',22,30);
+    ctx.font='11px Segoe UI';ctx.fillStyle=axis;ctx.fillText('EW',front.br[0]-18,front.br[1]+28);ctx.fillText('NS',back.bl[0]+8,back.bl[1]-10);ctx.fillText('TVD (m)',left-9,top-12);
     ctx.restore();
   }
-  
+
   function draw3d(){let dim=resizeCanvas(c3),w=dim.w,h=dim.h,ctx=c3.getContext('2d');ctx.clearRect(0,0,w,h);drawBox(ctx,w,h);let pts=drawRows.map(r=>transform(r,w,h));state3d.projected=pts;
+    // Floor shadow: the same path with TVD flattened to the deepest point,
+    // giving a depth cue similar to a plan-view shadow cast on the floor.
+    ctx.save();ctx.strokeStyle='#b7c9d3';ctx.lineWidth=1.4;ctx.setLineDash([1,3]);ctx.lineJoin='round';ctx.beginPath();
+    drawRows.forEach((r,i)=>{let p=transform(r,w,h,rr.maxZ);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
+    ctx.stroke();ctx.setLineDash([]);ctx.restore();
     ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#003b5c';ctx.lineWidth=4;ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});ctx.stroke();
     ctx.fillStyle='#003b5c';let dotEvery=Math.max(1,Math.ceil(pts.length/95));pts.forEach((p,i)=>{if(i%dotEvery!==0&&i!==state3d.selected)return;ctx.beginPath();ctx.arc(p.x,p.y,i===state3d.selected?5:2.3,0,Math.PI*2);ctx.fill();});
     let s=pts[state3d.selected], box=state3d.box;
@@ -391,7 +436,7 @@ function initNativeTrajectory(rows){
   c3.onpointerdown=e=>{state3d.drag=true;state3d.lastX=e.clientX;state3d.lastY=e.clientY;c3.setPointerCapture&&c3.setPointerCapture(e.pointerId)};
   c3.onpointerup=e=>{state3d.drag=false;try{c3.releasePointerCapture&&c3.releasePointerCapture(e.pointerId)}catch(_){}};
   c3.onpointerleave=e=>{state3d.drag=false;hidePlotTip()};
-  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.35,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e)}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
+  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.58,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e)}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
   c3.onclick=e=>{let i=nearest(state3d.projected,e,c3,24);if(i>=0)select(i,e)};
   c3.addEventListener('wheel',e=>{try{e.preventDefault();state3d.zoom=Math.max(0.45,Math.min(3.2,state3d.zoom*(e.deltaY<0?1.08:0.92)));redraw();}catch(err){console.warn('3D wheel issue suppressed',err)}},{passive:false});
   cp.onpointermove=e=>{let i=nearest(state3d.planPts,e,cp,18);if(i>=0)select(i,e);else hidePlotTip()};
