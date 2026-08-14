@@ -97,6 +97,7 @@ function drawSchematic(){
     if(Number.isFinite(yt)&&Number.isFinite(yb)&&yb>yt){let cementW=29;svg.push(`<rect x="${cx-hp-cementW}" y="${yt}" width="${cementW}" height="${yb-yt}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/><rect x="${cx+hp}" y="${yt}" width="${cementW}" height="${yb-yt}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`)}
   });
 
+  let shoeLabelX=Math.max(40,cx-half(maxOD)-275);
   state.strings.slice().sort((a,b)=>n(b.OD)-n(a.OD)).forEach((s,idx)=>{
     let hp=half(s.OD), yt=Y(s.TopTVD), yb=Y(s.ShoeTVD), type=String(s.Type||'').toLowerCase();
     let dash=type.includes('tieback')?'stroke-dasharray="7,5"':'';
@@ -104,7 +105,7 @@ function drawSchematic(){
     let tri=35;svg.push(`<polygon points="${cx-hp},${yb} ${cx-hp-tri},${yb} ${cx-hp},${yb-tri}" fill="#050505"/><polygon points="${cx+hp},${yb} ${cx+hp+tri},${yb} ${cx+hp},${yb-tri}" fill="#050505"/>`);
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD), n(s.OD)%1===0?0:3):'';
     let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'');
-    svg.push(schemLabel('shoe_'+idx,Math.max(40,cx-hp-275),yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,14,dark));
+    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,14,dark));
     if(type.includes('liner')){
       let prev=state.strings.filter(p=>n(p.ShoeTVD)<n(s.TopTVD)&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.ShoeTVD)-n(b.ShoeTVD)).pop();
       let outer=prev?half(prev.OD):hp+36, ylt=Y(s.TopTVD);
@@ -133,11 +134,9 @@ function drawSchematic(){
   });
 
   let deepest=Math.max(...state.strings.map(s=>n(s.ShoeTVD)||0));
-  let finalSection=state.sections.slice().sort((a,b)=>n(b.ToTVD)-n(a.ToTVD))[0];
   let yTop=Y(deepest), yBot=Y(td), amp=8, left=cx-49, right=cx+49, pathL='', pathR='';
   for(let y=yTop;y<=yBot;y+=18){let off=Math.sin((y-yTop)/18)*amp;pathL+=(pathL?' L':'M')+(left+off)+','+y;pathR+=(pathR?' L':'M')+(right-off)+','+y}
   svg.push(`<path d="${pathL}" fill="none" stroke="#777" stroke-width="3"/><path d="${pathR}" fill="none" stroke="#777" stroke-width="3"/>`);
-  if(finalSection)svg.push(schemLabel('final_section',810,(Y(finalSection.FromTVD)+Y(finalSection.ToTVD))/2,`${finalSection.Section} | ${fmt(n(finalSection.FromTVD),0)}-${fmt(n(finalSection.ToTVD),0)} mTVD | MW ${fmt(n(finalSection.MW),2)} SG`,14,dark));
   svg.push(`</svg>`);
   $('schematicPlot').innerHTML=svg.join('');
   makeSchematicLabelsDraggable();
