@@ -513,6 +513,12 @@ function initNativeTrajectory(rows){
   window._drillwiseTrajectoryRedraw=function(){redraw();};
   function resizeCanvas(c){let r=c.getBoundingClientRect();let d=window.devicePixelRatio||1;let w=Math.max(420,Math.floor(r.width)),h=Math.max(420,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d);let ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);}return {w,h};}
   function stationText(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];return `MD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
+  function offsetStationText(name,r){return `${name}\nMD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
+  function nearestOffsetPoint(pointsKey,ev,canvas,maxDist){
+    let r=canvas.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,best=null,bd=maxDist;
+    offsetTracks.forEach((o,oi)=>{(o[pointsKey]||[]).forEach((p,i)=>{let d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best={oi,i}}})});
+    return best;
+  }
   function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°`;}
   function transform(pt,w,h,tvdOverride){
     let box=state3d.box||{left:0,right:w,top:0,bottom:h};
@@ -613,7 +619,8 @@ function initNativeTrajectory(rows){
       ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=2.2;
       offsetTracks.forEach(o=>{
         ctx.strokeStyle=o.color;ctx.beginPath();
-        o.rows.forEach((r,i)=>{let p=transform(r,w,h);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
+        o.projected3d=o.rows.map(r=>transform(r,w,h));
+        o.projected3d.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
         ctx.stroke();
       });
       ctx.font='11px Segoe UI';ctx.textAlign='left';
@@ -659,7 +666,8 @@ function initNativeTrajectory(rows){
       ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=2;
       offsetTracks.forEach(o=>{
         ctx.strokeStyle=o.color;ctx.beginPath();
-        o.rows.forEach((r,i)=>{let px=w/2+(n(r.EW)-cx)*scale,py=h/2-(n(r.NS)-cy)*scale;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py)});
+        o.projectedPlan=o.rows.map(r=>({x:w/2+(n(r.EW)-cx)*scale,y:h/2-(n(r.NS)-cy)*scale,raw:r}));
+        o.projectedPlan.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
         ctx.stroke();
       });
       ctx.restore();
@@ -681,10 +689,10 @@ function initNativeTrajectory(rows){
   c3.onpointerdown=e=>{state3d.drag=true;state3d.lastX=e.clientX;state3d.lastY=e.clientY;c3.setPointerCapture&&c3.setPointerCapture(e.pointerId)};
   c3.onpointerup=e=>{state3d.drag=false;try{c3.releasePointerCapture&&c3.releasePointerCapture(e.pointerId)}catch(_){}};
   c3.onpointerleave=e=>{state3d.drag=false;hidePlotTip()};
-  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.58,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e)}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
+  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.58,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e);return;}let hit=nearestOffsetPoint('projected3d',e,c3,20);if(hit){let o=offsetTracks[hit.oi];showPlotTip(e,offsetStationText(o.name,o.rows[hit.i]));}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
   c3.onclick=e=>{let i=nearest(state3d.projected,e,c3,24);if(i>=0)select(i,e)};
   c3.addEventListener('wheel',e=>{try{e.preventDefault();state3d.zoom=Math.max(0.45,Math.min(3.2,state3d.zoom*(e.deltaY<0?1.08:0.92)));redraw();}catch(err){console.warn('3D wheel issue suppressed',err)}},{passive:false});
-  cp.onpointermove=e=>{let i=nearest(state3d.planPts,e,cp,18);if(i>=0)select(i,e);else hidePlotTip()};
+  cp.onpointermove=e=>{let i=nearest(state3d.planPts,e,cp,18);if(i>=0){select(i,e);return;}let hit=nearestOffsetPoint('projectedPlan',e,cp,18);if(hit){let o=offsetTracks[hit.oi];showPlotTip(e,offsetStationText(o.name,o.rows[hit.i]));}else hidePlotTip();};
   cp.onclick=e=>{let i=nearest(state3d.planPts,e,cp,24);if(i>=0)select(i,e)};
   cp.onpointerleave=()=>hidePlotTip();
   window.addEventListener('resize',()=>{if(state.active==='wellpath')redraw()});
