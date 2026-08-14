@@ -333,14 +333,19 @@ function trajectoryShoeMarkers(rows){
 }
 function renderOffsetWellsList(){
   let div=$('offsetWellsList'); if(!div)return;
-  div.innerHTML=state.offsetWells.map(w=>`<div class="grid3" style="align-items:end;border-top:1px solid var(--line);padding-top:10px;margin-top:10px"><label>Name<input value="${esc(w.name)}" onchange="renameOffsetWell('${w.id}',this.value)"></label><label>Trajectory file<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="loadOffsetWellFile('${w.id}',this.files[0])"></label><div style="display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${w.color};flex:none" title="${esc(w.name)} colour"></span><button onclick="removeOffsetWell('${w.id}')">Remove</button></div></div><p class="note" style="margin:4px 0 0">${esc(w.status||'No file loaded yet.')}</p>`).join('');
+  div.innerHTML=state.offsetWells.map(w=>`<div class="grid3" style="align-items:end;border-top:1px solid var(--line);padding-top:10px;margin-top:10px"><label>Name<input value="${esc(w.name)}" onchange="renameOffsetWell('${w.id}',this.value)"></label><label>Trajectory file<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="loadOffsetWellFile('${w.id}',this.files[0])"></label><div style="display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${w.color};flex:none" title="${esc(w.name)} colour"></span><button onclick="removeOffsetWell('${w.id}')">Remove</button></div></div><div class="grid3" style="align-items:end;margin-top:6px"><label>Surface N/S offset from primary (m)<input type="number" step="0.1" value="${n(w.surfaceNS)||0}" onchange="setOffsetWellSurface('${w.id}','surfaceNS',this.value)"></label><label>Surface E/W offset from primary (m)<input type="number" step="0.1" value="${n(w.surfaceEW)||0}" onchange="setOffsetWellSurface('${w.id}','surfaceEW',this.value)"></label><div></div></div><p class="note" style="margin:4px 0 0">${esc(w.status||'No file loaded yet.')}</p>`).join('');
   let addBtn=$('addOffsetWellBtn'); if(addBtn)addBtn.disabled=state.offsetWells.length>=10;
+}
+function setOffsetWellSurface(id,field,value){
+  let w=state.offsetWells.find(w=>w.id===id); if(!w)return;
+  w[field]=n(value)||0;
+  drawWellpathViews(trajectoryRows());
 }
 function addOffsetWell(){
   if(state.offsetWells.length>=10)return;
   let id='ow_'+Date.now()+'_'+state.offsetWells.length;
   let color=OFFSET_WELL_COLORS[state.offsetWells.length%OFFSET_WELL_COLORS.length];
-  state.offsetWells.push({id,name:'Offset '+(state.offsetWells.length+1),color,raw:[],wp:[],status:'No file loaded yet.'});
+  state.offsetWells.push({id,name:'Offset '+(state.offsetWells.length+1),color,surfaceNS:0,surfaceEW:0,raw:[],wp:[],status:'No file loaded yet.'});
   renderOffsetWellsList();
 }
 function removeOffsetWell(id){
@@ -388,7 +393,12 @@ async function loadOffsetWellFile(id,file){
   drawWellpathViews(trajectoryRows());
 }
 function offsetWellTrajectoryRows(w){
-  return (w.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))&&Number.isFinite(n(r.NS))&&Number.isFinite(n(r.EW)));
+  // Each well's own NS/EW is measured from its own surface location (0,0 at
+  // MD 0), so shifting every row by the well's surface offset repositions
+  // its whole path relative to the primary well's surface location instead
+  // of every well appearing to spud from the same point.
+  let ns0=n(w.surfaceNS)||0, ew0=n(w.surfaceEW)||0;
+  return (w.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))&&Number.isFinite(n(r.NS))&&Number.isFinite(n(r.EW))).map(r=>({...r,NS:n(r.NS)+ns0,EW:n(r.EW)+ew0}));
 }
 function toggleTrajectoryFullscreen(){
   let card=$('traj3dCard'); if(!card)return;
@@ -433,7 +443,7 @@ function loadPlotlyTrajectory(cb){
 }
 function renderWellpath(){
   let rows=trajectoryRows();
-  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
   renderOffsetWellsList();
   drawWellpathViews(rows);
 }
