@@ -114,7 +114,7 @@ function interp(rows,xcol,ycol,x){let a=rows.filter(r=>Number.isFinite(r[xcol])&
 
 
 function renderSchematic(){
-  $('page-schematic').innerHTML=`<div class="card"><h3>Well schematic</h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them. Double-click a text box to delete it.</p><div class="actions"><button class="dark" onclick="drawSchematic()">Refresh schematic</button><button onclick="resetSchematicLabels()">Reset label positions</button><button onclick="addSchematicNote()">Add text box</button></div><div id="schematicPlot" class="plot"></div></div>`;
+  $('page-schematic').innerHTML=`<div class="card"><h3>Well schematic</h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them. Double-click a text box to delete it.</p><div class="actions"><button class="dark" onclick="drawSchematic()">Refresh schematic</button><button onclick="resetSchematicLabels()">Reset label positions</button><button onclick="addSchematicNote()">Add text box</button></div><div id="schematicPlot" class="plot" style="min-height:0"></div></div>`;
   drawSchematic();
 }
 function addSchematicNote(){
@@ -212,7 +212,7 @@ function drawSchematic(){
   let sectionX=cx-138, sectionW=275;
   let dark='#06263a', grey='#a8a8a8', greyStroke='#6f6f6f', blue1='#e8f8fc', cream='#fff6ec';
   let caseName=state.general.caseName||'Well';
-  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;max-width:1110px;min-width:720px;height:auto;background:white;border:0;border-radius:0;display:block" xmlns="http://www.w3.org/2000/svg">`);
+  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:calc(100vh - 440px);min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
   svg.push(schemLabel('title',20,32,`${caseName} - Well Schematic`,27,'#003b5c','800'));
   svg.push(schemLabel('subtitle',20,58,'Classic subsea vertical schematic | seabed top reference | grey cement blocks',13,'#4f6f82'));
