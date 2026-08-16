@@ -211,15 +211,15 @@ function drawSchematic(){
   let half=od=>38+(n(od)||0)/Math.max(maxOD,1)*124;
   let sectionX=cx-138, sectionW=275;
   let dark='#06263a', grey='#a8a8a8', greyStroke='#6f6f6f', blue1='#e8f8fc', cream='#fff6ec';
-  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:calc(100vh - 440px);min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`);
+  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:calc(100vh - 260px);min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
   svg.push(`<line x1="68" y1="${Y(0)}" x2="935" y2="${Y(0)}" stroke="#777" stroke-width="1.6" stroke-dasharray="7,8"/>`);
-  svg.push(schemLabel('seabed_label',952,Y(0)+4,'Seabed / top of subsea casing schematic',12,'#111'));
+  svg.push(schemLabel('seabed_label',952,Y(0)+4,'Seabed / top of subsea casing schematic',13,'#111'));
 
   state.sections.forEach((s,i)=>{
     let y1=Y(s.FromTVD), y2=Y(s.ToTVD), fill=i%2===0?cream:blue1;
     svg.push(`<rect x="${sectionX}" y="${y1}" width="${sectionW}" height="${Math.max(2,y2-y1)}" fill="${fill}" stroke="#e0e9ee"/>`);
-    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,14,dark));
+    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,15,dark));
   });
 
   state.strings.forEach((s,i)=>{
@@ -236,7 +236,7 @@ function drawSchematic(){
     let tri=35;svg.push(`<polygon points="${cx-hp},${yb} ${cx-hp-tri},${yb} ${cx-hp},${yb-tri}" fill="#050505"/><polygon points="${cx+hp},${yb} ${cx+hp+tri},${yb} ${cx+hp},${yb-tri}" fill="#050505"/>`);
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD), n(s.OD)%1===0?0:3):'';
     let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'');
-    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,14,dark));
+    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,15,dark));
     shoeAnchors.push({key:'shoe_'+idx,x:cx-hp,y:yb});
     if(type.includes('liner')){
       let prev=state.strings.filter(p=>n(p.ShoeTVD)>=n(s.TopTVD)&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.OD)-n(b.OD))[0];
@@ -261,7 +261,7 @@ function drawSchematic(){
       let leftTickX=cx-hp-linerClear;
       let rightTickX=cx+hp+linerClear;
       svg.push(`<rect x="${leftX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${leftX+boxW}" y1="${ylt-2}" x2="${leftTickX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/><rect x="${rightX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${rightTickX}" y1="${ylt-2}" x2="${rightX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/>`);
-      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',12,dark));
+      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',13,dark));
     }
   });
 
