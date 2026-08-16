@@ -6,7 +6,7 @@
 
 /* DrillWise v1.1 fixed: Riser colour controls side panel only */
 .riser-v11-layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px;align-items:start}.riser-v11-side{position:sticky;top:14px;background:#f8fcff;border:1px solid var(--line,#cfe4ec);border-radius:16px;padding:12px}.riser-v11-side h4{margin:0 0 10px;color:#102a3a}.riser-v11-side label{display:block;margin-bottom:10px}.riser-v11-side input[type=color]{height:34px;padding:2px}@media(max-width:1050px){.riser-v11-layout{grid-template-columns:1fr}.riser-v11-side{position:static}}
-</style></head><body><div class="app"><aside class="side"><h1>DrillWise Well Planner</h1><div id="nav" class="nav"></div></aside><main class="main"><div class="hero"><h2 id="title">Well planning tools</h2><p class="note">Uploads are side-by-side. Riser Margin and Gas Migration plots use the same inline SVG approach. Kick tolerance is the detailed version.</p><div id="runtimeError" style="display:none;background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3;border-radius:12px;padding:10px;margin-top:10px"></div></div><div id="pages"></div></main></div><script>
+</style></head><body><div class="app"><aside class="side"><h1>DrillWise Well Planner</h1><div id="nav" class="nav"></div></aside><main class="main"><div id="runtimeError" style="display:none;background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3;border-radius:12px;padding:10px;margin-bottom:14px"></div><div id="pages"></div></main></div><script>
 window.addEventListener('error',e=>{let msg=String((e&&e.message)||'');let isScript=e&&e.target&&String(e.target.tagName).toUpperCase()==='SCRIPT';let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isScript||isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting issue suppressed:',msg);return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
 window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.reason.message)||e.reason||'');let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting promise issue suppressed:',msg);if(e&&e.preventDefault)e.preventDefault();return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
 const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElementById(id),n=v=>{let x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN},fmt=(v,d=2)=>Number.isFinite(n(v))?n(v).toFixed(d):'',esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -17,7 +17,7 @@ const state={active:'input',general:{caseName:'Sabina South',waterDepth:445,airG
 const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function defaults(){state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:0,ShoeTVD:515,TopMD:0,ShoeMD:515,TopCementMD:0,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:0,ShoeTVD:1400,TopMD:0,ShoeMD:1400,TopCementMD:0,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:0,ShoeTVD:2840,TopMD:0,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}]};defaults();
 function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
-function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('title').textContent=state.general.caseName||'Well planning tools';$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({input:renderInput,schematic:renderSchematic,wellpath:renderWellpath,riser:renderRiser,gas:renderGas,kick:renderKick,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
+function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({input:renderInput,schematic:renderSchematic,wellpath:renderWellpath,riser:renderRiser,gas:renderGas,kick:renderKick,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
 function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section'].includes(c)?v:n(v))});out.push(o)});return out}
@@ -212,15 +212,15 @@ function drawSchematic(){
   let half=od=>38+(n(od)||0)/Math.max(maxOD,1)*124;
   let sectionX=cx-138, sectionW=275;
   let dark='#06263a', grey='#a8a8a8', greyStroke='#6f6f6f', blue1='#e8f8fc', cream='#fff6ec';
-  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:calc(100vh - 440px);min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`);
+  svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:calc(100vh - 260px);min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
   svg.push(`<line x1="68" y1="${Y(0)}" x2="935" y2="${Y(0)}" stroke="#777" stroke-width="1.6" stroke-dasharray="7,8"/>`);
-  svg.push(schemLabel('seabed_label',952,Y(0)+4,'Seabed / top of subsea casing schematic',12,'#111'));
+  svg.push(schemLabel('seabed_label',952,Y(0)+4,'Seabed / top of subsea casing schematic',13,'#111'));
 
   state.sections.forEach((s,i)=>{
     let y1=Y(s.FromTVD), y2=Y(s.ToTVD), fill=i%2===0?cream:blue1;
     svg.push(`<rect x="${sectionX}" y="${y1}" width="${sectionW}" height="${Math.max(2,y2-y1)}" fill="${fill}" stroke="#e0e9ee"/>`);
-    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,14,dark));
+    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,15,dark));
   });
 
   state.strings.forEach((s,i)=>{
@@ -237,7 +237,7 @@ function drawSchematic(){
     let tri=35;svg.push(`<polygon points="${cx-hp},${yb} ${cx-hp-tri},${yb} ${cx-hp},${yb-tri}" fill="#050505"/><polygon points="${cx+hp},${yb} ${cx+hp+tri},${yb} ${cx+hp},${yb-tri}" fill="#050505"/>`);
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD), n(s.OD)%1===0?0:3):'';
     let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'');
-    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,14,dark));
+    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,15,dark));
     shoeAnchors.push({key:'shoe_'+idx,x:cx-hp,y:yb});
     if(type.includes('liner')){
       let prev=state.strings.filter(p=>n(p.ShoeTVD)>=n(s.TopTVD)&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.OD)-n(b.OD))[0];
@@ -262,7 +262,7 @@ function drawSchematic(){
       let leftTickX=cx-hp-linerClear;
       let rightTickX=cx+hp+linerClear;
       svg.push(`<rect x="${leftX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${leftX+boxW}" y1="${ylt-2}" x2="${leftTickX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/><rect x="${rightX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${rightTickX}" y1="${ylt-2}" x2="${rightX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/>`);
-      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',12,dark));
+      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',13,dark));
     }
   });
 
