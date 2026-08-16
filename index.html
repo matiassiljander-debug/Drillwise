@@ -114,7 +114,7 @@ function interp(rows,xcol,ycol,x){let a=rows.filter(r=>Number.isFinite(r[xcol])&
 
 
 function renderSchematic(){
-  $('page-schematic').innerHTML=`<div class="card"><h3>Well schematic</h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them. Double-click a text box to delete it.</p><div class="actions"><button class="dark" onclick="drawSchematic()">Refresh schematic</button><button onclick="resetSchematicLabels()">Reset label positions</button><button onclick="addSchematicNote()">Add text box</button></div><div id="schematicPlot" class="plot" style="min-height:0"></div></div>`;
+  $('page-schematic').innerHTML=`<div class="card"><h3 style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">Well schematic <span style="font-weight:400;color:var(--muted);font-size:14px">${esc(state.general.caseName||'Well')}</span></h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them. Double-click a text box to delete it.</p><div class="actions"><button class="dark" onclick="drawSchematic()">Refresh schematic</button><button onclick="resetSchematicLabels()">Reset label positions</button><button onclick="addSchematicNote()">Add text box</button></div><div id="schematicPlot" class="plot" style="min-height:0"></div></div>`;
   drawSchematic();
 }
 function addSchematicNote(){
@@ -205,17 +205,14 @@ function makeSchematicLabelsDraggable(){
 }
 function drawSchematic(){
   // Restored reference schematic, enlarged slightly and with draggable labels.
-  let W=1294,H=1320,T=78,B=42,td=maxDepth(),plotH=H-T-B,Y=d=>T+(Number(d)||0)/Math.max(td,1)*plotH;
+  let W=1294,H=1278,T=36,B=42,td=maxDepth(),plotH=H-T-B,Y=d=>T+(Number(d)||0)/Math.max(td,1)*plotH;
   let cx=555, svg=[];
   let maxOD=Math.max(...state.strings.map(s=>n(s.OD)||0),36);
   let half=od=>38+(n(od)||0)/Math.max(maxOD,1)*124;
   let sectionX=cx-138, sectionW=275;
   let dark='#06263a', grey='#a8a8a8', greyStroke='#6f6f6f', blue1='#e8f8fc', cream='#fff6ec';
-  let caseName=state.general.caseName||'Well';
   svg.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:calc(100vh - 440px);min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
-  svg.push(schemLabel('title',20,32,`${caseName} - Well Schematic`,27,'#003b5c','800'));
-  svg.push(schemLabel('subtitle',20,58,'Classic subsea vertical schematic | seabed top reference | grey cement blocks',13,'#4f6f82'));
   svg.push(`<line x1="68" y1="${Y(0)}" x2="935" y2="${Y(0)}" stroke="#777" stroke-width="1.6" stroke-dasharray="7,8"/>`);
   svg.push(schemLabel('seabed_label',952,Y(0)+4,'Seabed / top of subsea casing schematic',12,'#111'));
 
