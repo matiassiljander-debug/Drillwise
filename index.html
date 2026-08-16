@@ -13,7 +13,8 @@ const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElem
 function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
 const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
 const pages=[['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['wellpath','03 Wellpath'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
-const state={active:'input',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],ppfg:[],wp:[],strings:[],sections:[],kickSettings:{},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false};
+const state={active:'input',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],ppfg:[],wp:[],strings:[],sections:[],kickSettings:{},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[]};
+const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function defaults(){state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:0,ShoeTVD:515,TopMD:0,ShoeMD:515,TopCementMD:0,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:0,ShoeTVD:1400,TopMD:0,ShoeMD:1400,TopCementMD:0,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:0,ShoeTVD:2840,TopMD:0,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}]};defaults();
 function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
 function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('title').textContent=state.general.caseName||'Well planning tools';$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({input:renderInput,schematic:renderSchematic,wellpath:renderWellpath,riser:renderRiser,gas:renderGas,kick:renderKick,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
@@ -302,8 +303,7 @@ function renderKick(){let valid=kickSections();$('page-kick').innerHTML=`<div cl
   let invalid=warnings.length>0;
   let eff=swab?Math.max(0,s.mw-s.swabSG):s.mw,maasp=sec.FromTVD*(s.fg-s.mw)*BAR_PER_M_SG-s.choke-s.safety,kickIntensity=Math.max(0,(s.pp-eff)*sec.ToTVD*BAR_PER_M_SG),avail=Math.max(0,maasp-kickIntensity),denom=Math.max(s.mw*BAR_PER_M_SG-s.gas*BAR_PER_M_SG,.0001),allowed=invalid?NaN:avail/denom,len=Math.max(0,sec.ToMD-sec.FromMD),bhaLen=Math.min(s.bhaLen,len),dpLen=Math.max(0,len-bhaLen),capDP=capLpm(s.outer,s.dp),capBHA=capLpm(s.outer,s.bha),hBHA=Math.min(allowed,bhaLen),hDP=Math.max(0,Math.min(allowed-bhaLen,dpLen)),kt=invalid?NaN:(hBHA*capBHA+hDP*capDP)/1000;return{Scenario:swab?'Swabbed kick':'Normal kick',Section:sec.Section,PP:s.pp,FG:s.fg,Planned_MW:s.mw,Effective_MW:eff,MAASP_net_bar:maasp,Kick_intensity_bar:kickIntensity,Available_shoe_pressure_bar:avail,Allowable_height_m:allowed,KickTolerance_m3:kt,KickTolerance_bbl:kt*BBL,MinimumRequired_m3:s.minKT,Status:invalid?'INVALID INPUT':(kt>=s.minKT?'OK':'LOW'),Warnings:warnings.join(' ')}}function calcKick(swab=false){let sec=kickSections()[n($('ktSec').value)||0];if(!sec)return;saveKick();let r=calculateKick(sec,getKick(sec),swab);let warnBox=$('ktWarning');if(r.Warnings){warnBox.style.display='block';warnBox.textContent='Invalid input - results below are not usable until this is fixed: '+r.Warnings}else{warnBox.style.display='none';warnBox.textContent=''}$('ktMetrics').innerHTML=[['Scenario',r.Scenario,''],['Kick tolerance',r.KickTolerance_m3,'m³'],['Kick tolerance',r.KickTolerance_bbl,'bbl'],['MAASP net',r.MAASP_net_bar,'bar'],['Available shoe pressure',r.Available_shoe_pressure_bar,'bar'],['Result',r.Status,'']].map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b class="${m[1]==='OK'?'ok':(m[1]==='LOW'||m[1]==='INVALID INPUT')?'bad':''}">${typeof m[1]==='number'?fmt(m[1],2):m[1]}</b> ${m[2]}</div>`).join('');$('ktAudit').innerHTML=table([r])}
 
-function trajectoryRows(){
-  let rows=(state.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))).map(r=>({MD:n(r.MD),TVD:n(r.TVD),Inc:n(r.Inc),Azimuth:n(r.Azimuth),NS:n(r.NS),EW:n(r.EW)})).sort((a,b)=>a.MD-b.MD);
+function deadReckonNsEw(rows){
   if(rows.some(r=>!Number.isFinite(r.NS)||!Number.isFinite(r.EW))){
     let ns=0,ew=0;
     for(let i=0;i<rows.length;i++){
@@ -314,6 +314,11 @@ function trajectoryRows(){
       cur.NS=Number.isFinite(cur.NS)?cur.NS:ns;cur.EW=Number.isFinite(cur.EW)?cur.EW:ew;
     }
   }
+  return rows;
+}
+function trajectoryRows(){
+  let rows=(state.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))).map(r=>({MD:n(r.MD),TVD:n(r.TVD),Inc:n(r.Inc),Azimuth:n(r.Azimuth),NS:n(r.NS),EW:n(r.EW)})).sort((a,b)=>a.MD-b.MD);
+  deadReckonNsEw(rows);
   return rows;
 }
 function toggleShoesOnTrajectory(el){state.showShoesOnTrajectory=!!el.checked;drawWellpathViews(trajectoryRows());}
@@ -329,6 +334,93 @@ function trajectoryShoeMarkers(rows){
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD),n(s.OD)%1===0?0:3):'';
     return {MD:md,TVD:tvd,NS:ns,EW:ew,label:`${(s.Label||s.String||'shoe')} | ${fmt(tvd,0)} mTVD${odText?' | OD '+odText:''}`};
   }).filter(Boolean);
+}
+function renderOffsetWellsList(){
+  let div=$('offsetWellsList'); if(!div)return;
+  div.innerHTML=state.offsetWells.map(w=>`<div class="grid3" style="align-items:end;border-top:1px solid var(--line);padding-top:10px;margin-top:10px"><label>Name<input value="${esc(w.name)}" onchange="renameOffsetWell('${w.id}',this.value)"></label><label>Trajectory file<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="loadOffsetWellFile('${w.id}',this.files[0])"></label><div style="display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${w.color};flex:none" title="${esc(w.name)} colour"></span><button onclick="removeOffsetWell('${w.id}')">Remove</button></div></div><div class="grid3" style="align-items:end;margin-top:6px"><label>Surface N/S offset from primary (m)<input type="number" step="0.1" value="${n(w.surfaceNS)||0}" onchange="setOffsetWellSurface('${w.id}','surfaceNS',this.value)"></label><label>Surface E/W offset from primary (m)<input type="number" step="0.1" value="${n(w.surfaceEW)||0}" onchange="setOffsetWellSurface('${w.id}','surfaceEW',this.value)"></label><div></div></div><p class="note" style="margin:4px 0 0">${esc(w.status||'No file loaded yet.')}</p>`).join('');
+  let addBtn=$('addOffsetWellBtn'); if(addBtn)addBtn.disabled=state.offsetWells.length>=10;
+}
+function setOffsetWellSurface(id,field,value){
+  let w=state.offsetWells.find(w=>w.id===id); if(!w)return;
+  w[field]=n(value)||0;
+  drawWellpathViews(trajectoryRows());
+}
+function addOffsetWell(){
+  if(state.offsetWells.length>=10)return;
+  let id='ow_'+Date.now()+'_'+state.offsetWells.length;
+  let color=OFFSET_WELL_COLORS[state.offsetWells.length%OFFSET_WELL_COLORS.length];
+  state.offsetWells.push({id,name:'Offset '+(state.offsetWells.length+1),color,surfaceNS:0,surfaceEW:0,raw:[],wp:[],status:'No file loaded yet.'});
+  renderOffsetWellsList();
+}
+function removeOffsetWell(id){
+  state.offsetWells=state.offsetWells.filter(w=>w.id!==id);
+  renderOffsetWellsList();
+  drawWellpathViews(trajectoryRows());
+}
+function renameOffsetWell(id,name){
+  let w=state.offsetWells.find(w=>w.id===id); if(w)w.name=name||w.name;
+  drawWellpathViews(trajectoryRows());
+}
+function guessWellpathColumn(cols,field){
+  let keys={MD:['md','measured'],TVD:['tvd','depth'],Inc:['inc','incl'],Azimuth:['azi','azim'],NS:['y-offset','north','n/s','ns'],EW:['x-offset','east','e/w','ew']};
+  return cols.find(c=>keys[field].some(k=>c.toLowerCase().includes(k)))||'';
+}
+async function loadOffsetWellFile(id,file){
+  let w=state.offsetWells.find(w=>w.id===id); if(!w||!file)return;
+  w.status='Loading...'; renderOffsetWellsList();
+  try{
+    let raw;
+    if(/\.xlsx?$/i.test(file.name)){
+      let X=await ensureXLSX();
+      let wb=X.read(await file.arrayBuffer(),{type:'array'});
+      let ws=wb.Sheets[wb.SheetNames[0]];
+      raw=parseAOA(X.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}));
+    } else raw=parseText(await file.text());
+    let cols=Object.keys(raw[0]||{});
+    let colMap={MD:guessWellpathColumn(cols,'MD'),TVD:guessWellpathColumn(cols,'TVD'),Inc:guessWellpathColumn(cols,'Inc'),Azimuth:guessWellpathColumn(cols,'Azimuth'),NS:guessWellpathColumn(cols,'NS'),EW:guessWellpathColumn(cols,'EW')};
+    let wp=raw.map(r=>({MD:n(r[colMap.MD]),TVD:n(r[colMap.TVD]),Inc:n(r[colMap.Inc]),Azimuth:n(r[colMap.Azimuth]),NS:n(r[colMap.NS]),EW:n(r[colMap.EW])})).filter(r=>Number.isFinite(r.MD)&&Number.isFinite(r.TVD)).sort((a,b)=>a.MD-b.MD);
+    deadReckonNsEw(wp);
+    w.raw=raw; w.wp=wp;
+    if(!colMap.MD||!colMap.TVD){
+      w.status=`Could not auto-detect MD/TVD columns in ${file.name}. Columns found: ${cols.join(', ')||'none'}.`;
+    } else if(!wp.length){
+      w.status=`No usable rows found in ${file.name}.`;
+    } else if(wp.some(r=>!Number.isFinite(r.NS)||!Number.isFinite(r.EW))){
+      w.status=`Loaded ${wp.length} rows from ${file.name}, but could not resolve NS/EW (need either NS/EW columns or Inc/Azimuth) - this well needs a position to plot.`;
+    } else {
+      w.status=`Loaded ${wp.length} rows from ${file.name} (MD ${colMap.MD}, TVD ${colMap.TVD}${colMap.NS?', NS '+colMap.NS:''}${colMap.EW?', EW '+colMap.EW:''}).`;
+    }
+  }catch(e){
+    w.status='Upload failed: '+e.message;
+  }
+  renderOffsetWellsList();
+  drawWellpathViews(trajectoryRows());
+}
+function offsetWellTrajectoryRows(w){
+  // Each well's own NS/EW is measured from its own surface location (0,0 at
+  // MD 0), so shifting every row by the well's surface offset repositions
+  // its whole path relative to the primary well's surface location instead
+  // of every well appearing to spud from the same point.
+  let ns0=n(w.surfaceNS)||0, ew0=n(w.surfaceEW)||0;
+  return (w.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))&&Number.isFinite(n(r.NS))&&Number.isFinite(n(r.EW))).map(r=>({...r,NS:n(r.NS)+ns0,EW:n(r.EW)+ew0}));
+}
+function toggleTrajectoryFullscreen(){
+  let card=$('traj3dCard'); if(!card)return;
+  if(!document.fullscreenElement){
+    let req=card.requestFullscreen||card.webkitRequestFullscreen;
+    if(req)req.call(card);
+  } else {
+    let exit=document.exitFullscreen||document.webkitExitFullscreen;
+    if(exit)exit.call(document);
+  }
+}
+if(!window._drillwiseFsListenerAdded){
+  window._drillwiseFsListenerAdded=true;
+  document.addEventListener('fullscreenchange',()=>{
+    let card=$('traj3dCard'), canvas=$('traj3dCanvas');
+    if(canvas)canvas.style.height=(document.fullscreenElement===card)?'calc(100vh - 96px)':'680px';
+    if(state.active==='wellpath'&&window._drillwiseTrajectoryRedraw)window._drillwiseTrajectoryRedraw();
+  });
 }
 function lookupTrajectory(){
   let rows=trajectoryRows(),basis=$('trajBasis').value,val=n($('trajDepth').value);
@@ -355,7 +447,8 @@ function loadPlotlyTrajectory(cb){
 }
 function renderWellpath(){
   let rows=trajectoryRows();
-  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="grid"><div class="card"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  renderOffsetWellsList();
   drawWellpathViews(rows);
 }
 function drawWellpathViews(rows){
@@ -409,9 +502,10 @@ function initNativeTrajectory(rows){
   let fullRows=(rows||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))&&Number.isFinite(n(r.NS))&&Number.isFinite(n(r.EW)));
   let drawRows=downsampleTrajectoryRows(densifyTrajectory(fullRows),600);
   let shoeMarkers=trajectoryShoeMarkers(fullRows);
+  let offsetTracks=state.offsetWells.map(w=>({name:w.name,color:w.color,rows:downsampleTrajectoryRows(densifyTrajectory(offsetWellTrajectoryRows(w)),300)})).filter(o=>o.rows.length>1);
   let c3=$('traj3dCanvas'), cp=$('trajPlanCanvas');
   if(!c3||!cp||!drawRows.length)return;
-  function ranges(){let xs=drawRows.map(r=>n(r.EW)).concat(shoeMarkers.map(r=>r.EW)),ys=drawRows.map(r=>n(r.NS)).concat(shoeMarkers.map(r=>r.NS)),zs=drawRows.map(r=>n(r.TVD)).concat(shoeMarkers.map(r=>r.TVD));let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs);if(maxX===minX){maxX+=1;minX-=1}if(maxY===minY){maxY+=1;minY-=1}if(maxZ===minZ){maxZ+=1;minZ-=1}return {minX,maxX,minY,maxY,minZ,maxZ,cx:(minX+maxX)/2,cy:(minY+maxY)/2,cz:(minZ+maxZ)/2};}
+  function ranges(){let allRows=drawRows.concat(shoeMarkers).concat(...offsetTracks.map(o=>o.rows));let xs=allRows.map(r=>n(r.EW)),ys=allRows.map(r=>n(r.NS)),zs=allRows.map(r=>n(r.TVD));let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs);if(maxX===minX){maxX+=1;minX-=1}if(maxY===minY){maxY+=1;minY-=1}if(maxZ===minZ){maxZ+=1;minZ-=1}return {minX,maxX,minY,maxY,minZ,maxZ,cx:(minX+maxX)/2,cy:(minY+maxY)/2,cz:(minZ+maxZ)/2};}
   let rr=ranges();
   // Default camera: side-on along the well's overall departure direction, with
   // the surface (shallowest TVD) at the top of the box - matches how a
@@ -424,13 +518,21 @@ function initNativeTrajectory(rows){
   // (departure) axis, not a generic EW/NS extent - a curved path can wander
   // less than its raw EW/NS bounding box once rotated to face-on.
   let rotCos0=Math.cos(rotZ0), rotSin0=Math.sin(rotZ0);
-  let rotatedXs=drawRows.map(r=>(n(r.EW)-rr.cx)*rotCos0-(n(r.NS)-rr.cy)*rotSin0);
+  let rotatedXAllRows=drawRows.concat(shoeMarkers).concat(...offsetTracks.map(o=>o.rows));
+  let rotatedXs=rotatedXAllRows.map(r=>(n(r.EW)-rr.cx)*rotCos0-(n(r.NS)-rr.cy)*rotSin0);
   let rotatedXSpan=Math.max(1,Math.max(...rotatedXs)-Math.min(...rotatedXs));
   let state3d={rows:drawRows,fullRows:fullRows,rotZ:rotZ0,rotX:rotX0,zoom:1.0,rotZ0,rotX0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
   window._drillwiseTrajectoryView=state3d;
   window._drillwiseTrajectoryReset=function(){state3d.rotZ=state3d.rotZ0;state3d.rotX=state3d.rotX0;state3d.zoom=1.0;redraw();};
+  window._drillwiseTrajectoryRedraw=function(){redraw();};
   function resizeCanvas(c){let r=c.getBoundingClientRect();let d=window.devicePixelRatio||1;let w=Math.max(420,Math.floor(r.width)),h=Math.max(420,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d);let ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);}return {w,h};}
   function stationText(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];return `MD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
+  function offsetStationText(name,r){return `${name}\nMD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
+  function nearestOffsetPoint(pointsKey,ev,canvas,maxDist){
+    let r=canvas.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,best=null,bd=maxDist;
+    offsetTracks.forEach((o,oi)=>{(o[pointsKey]||[]).forEach((p,i)=>{let d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best={oi,i}}})});
+    return best;
+  }
   function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°`;}
   function transform(pt,w,h,tvdOverride){
     let box=state3d.box||{left:0,right:w,top:0,bottom:h};
@@ -527,6 +629,22 @@ function initNativeTrajectory(rows){
     ctx.save();ctx.strokeStyle='#b7c9d3';ctx.lineWidth=1.4;ctx.setLineDash([1,3]);ctx.lineJoin='round';ctx.beginPath();
     drawRows.forEach((r,i)=>{let p=transform(r,w,h,rr.maxZ);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
     ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    if(offsetTracks.length){
+      ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=2.2;
+      offsetTracks.forEach(o=>{
+        ctx.strokeStyle=o.color;ctx.beginPath();
+        o.projected3d=o.rows.map(r=>transform(r,w,h));
+        o.projected3d.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
+        ctx.stroke();
+      });
+      ctx.font='11px Segoe UI';ctx.textAlign='left';
+      offsetTracks.forEach((o,oi)=>{
+        let ly=48+oi*16;
+        ctx.strokeStyle=o.color;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(w-160,ly);ctx.lineTo(w-138,ly);ctx.stroke();
+        ctx.fillStyle='#345163';ctx.fillText(o.name,w-132,ly+4);
+      });
+      ctx.restore();
+    }
     ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#003b5c';ctx.lineWidth=4;ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});ctx.stroke();
     ctx.fillStyle='#003b5c';let dotEvery=Math.max(1,Math.ceil(pts.length/95));pts.forEach((p,i)=>{if(i%dotEvery!==0&&i!==state3d.selected)return;ctx.beginPath();ctx.arc(p.x,p.y,i===state3d.selected?5:2.3,0,Math.PI*2);ctx.fill();});
     if(shoeMarkers.length){
@@ -558,6 +676,16 @@ function initNativeTrajectory(rows){
   
   function drawPlan(){let dim=resizeCanvas(cp),w=dim.w,h=dim.h,ctx=cp.getContext('2d');ctx.clearRect(0,0,w,h);ctx.save();ctx.fillStyle='#f8fcff';ctx.fillRect(12,12,w-24,h-24);ctx.strokeStyle='#d7e6ed';ctx.strokeRect(12,12,w-24,h-24);ctx.strokeStyle='#eef4f7';for(let i=1;i<6;i++){let x=12+i*(w-24)/6,y=12+i*(h-24)/6;ctx.beginPath();ctx.moveTo(x,12);ctx.lineTo(x,h-12);ctx.moveTo(12,y);ctx.lineTo(w-12,y);ctx.stroke();}
     let pad=58,minX=rr.minX,maxX=rr.maxX,minY=rr.minY,maxY=rr.maxY,scale=Math.min((w-2*pad)/(maxX-minX),(h-2*pad)/(maxY-minY))*0.92,cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+    if(offsetTracks.length){
+      ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=2;
+      offsetTracks.forEach(o=>{
+        ctx.strokeStyle=o.color;ctx.beginPath();
+        o.projectedPlan=o.rows.map(r=>({x:w/2+(n(r.EW)-cx)*scale,y:h/2-(n(r.NS)-cy)*scale,raw:r}));
+        o.projectedPlan.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
     let pts=drawRows.map(r=>({x:w/2+(n(r.EW)-cx)*scale,y:h/2-(n(r.NS)-cy)*scale,raw:r}));state3d.planPts=pts;ctx.strokeStyle='#00a3c7';ctx.lineWidth=3;ctx.beginPath();pts.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});ctx.stroke();
     if(shoeMarkers.length){
       ctx.save();ctx.font='11px Segoe UI';
@@ -575,10 +703,10 @@ function initNativeTrajectory(rows){
   c3.onpointerdown=e=>{state3d.drag=true;state3d.lastX=e.clientX;state3d.lastY=e.clientY;c3.setPointerCapture&&c3.setPointerCapture(e.pointerId)};
   c3.onpointerup=e=>{state3d.drag=false;try{c3.releasePointerCapture&&c3.releasePointerCapture(e.pointerId)}catch(_){}};
   c3.onpointerleave=e=>{state3d.drag=false;hidePlotTip()};
-  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.58,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e)}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
+  c3.onpointermove=e=>{try{if(state3d.drag){let dx=e.clientX-state3d.lastX,dy=e.clientY-state3d.lastY;state3d.lastX=e.clientX;state3d.lastY=e.clientY;state3d.rotZ+=dx*0.008;state3d.rotX=Math.max(-1.58,Math.min(1.35,state3d.rotX+dy*0.006));hidePlotTip();draw3d();return;}let i=nearest(state3d.projected,e,c3,20);if(i>=0){select(i,e);return;}let hit=nearestOffsetPoint('projected3d',e,c3,20);if(hit){let o=offsetTracks[hit.oi];showPlotTip(e,offsetStationText(o.name,o.rows[hit.i]));}else hidePlotTip();}catch(err){console.warn('3D pointer issue suppressed',err)}};
   c3.onclick=e=>{let i=nearest(state3d.projected,e,c3,24);if(i>=0)select(i,e)};
   c3.addEventListener('wheel',e=>{try{e.preventDefault();state3d.zoom=Math.max(0.45,Math.min(3.2,state3d.zoom*(e.deltaY<0?1.08:0.92)));redraw();}catch(err){console.warn('3D wheel issue suppressed',err)}},{passive:false});
-  cp.onpointermove=e=>{let i=nearest(state3d.planPts,e,cp,18);if(i>=0)select(i,e);else hidePlotTip()};
+  cp.onpointermove=e=>{let i=nearest(state3d.planPts,e,cp,18);if(i>=0){select(i,e);return;}let hit=nearestOffsetPoint('projectedPlan',e,cp,18);if(hit){let o=offsetTracks[hit.oi];showPlotTip(e,offsetStationText(o.name,o.rows[hit.i]));}else hidePlotTip();};
   cp.onclick=e=>{let i=nearest(state3d.planPts,e,cp,24);if(i>=0)select(i,e)};
   cp.onpointerleave=()=>hidePlotTip();
   window.addEventListener('resize',()=>{if(state.active==='wellpath')redraw()});
@@ -717,13 +845,13 @@ function renderExport(){$('page-export').innerHTML='<div class="card"><h3>Checks
   function blankString(){return {String:'',Type:'',TopTVD:'',ShoeTVD:'',TopMD:'',ShoeMD:'',TopCementMD:'',OD:'',ID:'',Label:''};}
   function blankSection(){return {Section:'',Hole:'',FromTVD:'',ToTVD:'',FromMD:'',ToMD:'',MW:'',RM:false};}
   function safeRead(){try{if($('caseName'))state.general.caseName=$('caseName').value;if($('waterDepth'))state.general.waterDepth=n($('waterDepth').value);if($('airGap'))state.general.airGap=n($('airGap').value);if($('swDensity'))state.general.swDensity=n($('swDensity').value);if($('requiredOB'))state.general.requiredOB=n($('requiredOB').value);if($('stringsTable'))state.strings=readEdit('stringsTable');if($('sectionsTable'))state.sections=readEdit('sectionsTable');}catch(e){console.warn('v1.6.2 input read skipped',e)}}
-  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory}}
-  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;render();}
+  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells)}}
+  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];render();}
   window.drillwiseSaveWell=function(){localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));drillwiseSetSaveStatus('Saved current well in this browser.');};
   window.drillwiseLoadWell=function(){let txt=localStorage.getItem(SAVE_KEY);if(!txt){drillwiseSetSaveStatus('No saved well found in this browser.');return;}try{restore(JSON.parse(txt));drillwiseSetSaveStatus('Loaded saved well from this browser.')}catch(e){drillwiseSetSaveStatus('Could not load saved well: '+e.message)}};
   window.drillwiseDownloadWell=function(){let data=JSON.stringify(snapshot(),null,2);let name=(state.general&&state.general.caseName?String(state.general.caseName):'DrillWise_well').replace(/[^a-z0-9_-]+/gi,'_');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);drillwiseSetSaveStatus('Downloaded well JSON.');};
   window.drillwiseImportWell=function(inp){let f=inp&&inp.files&&inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{restore(JSON.parse(String(r.result||'')));drillwiseSetSaveStatus('Imported well JSON: '+f.name)}catch(e){drillwiseSetSaveStatus('Import failed: '+e.message)}};r.readAsText(f);};
-  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.ppfg=[];state.wp=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.schematicLabelPos={};state.schematicNotes=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
+  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.ppfg=[];state.wp=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
   window.drillwiseAddCasingRow=function(){safeRead();state.strings.push(blankString());renderInput();};
   window.drillwiseAddSectionRow=function(){safeRead();state.sections.push(blankSection());renderInput();};
   window.drillwiseApplyAndViewSchematic=function(){safeRead();state.active='schematic';render();};
