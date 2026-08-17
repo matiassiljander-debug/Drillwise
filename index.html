@@ -420,6 +420,13 @@ function profileOffsetLine(center,off){
   let pts=profileNormals(center);
   return 'M'+pts.map(p=>`${(p.x+p.nx*off).toFixed(1)},${(p.y+p.ny*off).toFixed(1)}`).join(' L');
 }
+function profileShoeTriangle(p,off,tri){
+  let tx=p.ny, ty=-p.nx, sign=off<0?-1:1, outOff=off+sign*tri;
+  let p1={x:p.x+p.nx*off,y:p.y+p.ny*off};
+  let p2={x:p.x+p.nx*outOff,y:p.y+p.ny*outOff};
+  let p3={x:p1.x-tx*tri,y:p1.y-ty*tri};
+  return `M${p1.x.toFixed(1)},${p1.y.toFixed(1)} L${p2.x.toFixed(1)},${p2.y.toFixed(1)} L${p3.x.toFixed(1)},${p3.y.toFixed(1)} Z`;
+}
 function profileHangerBoxPath(p,off,widthAcross,lenAlong){
   let tx=p.ny, ty=-p.nx;
   let cx0=p.x+p.nx*off, cy0=p.y+p.ny*off;
@@ -530,6 +537,7 @@ function drawSchematicProfile(){
   let isFs=document.fullscreenElement===$('schematicProfileCard');
   let maxH=isFs?'calc(100vh - 50px)':'calc(100vh - 100px)';
   let svg=[`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:${maxH};min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`];
+  svg.push(`<defs><pattern id="cementHatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#ececec"/><line x1="0" y1="0" x2="0" y2="8" stroke="#6f6f6f" stroke-width="2.5"/></pattern></defs>`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
   // Rig, sea, air gap, seabed
   let surfX=X(vsAt(rows,0)?vsAt(rows,0).HD:0), sbY=Y(sb);
@@ -555,10 +563,14 @@ function drawSchematicProfile(){
     svg.push(`<path d="${profileOffsetLine(center,half)}" fill="none" stroke="${dark}" stroke-width="4"/>`);
     let cemTopMD=Number.isFinite(n(s.TopCementMD))?n(s.TopCementMD):NaN;
     if(Number.isFinite(cemTopMD)&&shoeMD>cemTopMD){
-      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=16;
-      svg.push(`<path d="${profileBandPath(cemCenter,half,half+cw)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
-      svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
+      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=22;
+      svg.push(`<path d="${profileBandPath(cemCenter,half,half+cw)}" fill="url(#cementHatch)" stroke="${greyStroke}" stroke-width="1.5"/>`);
+      svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="url(#cementHatch)" stroke="${greyStroke}" stroke-width="1.5"/>`);
     }
+    let shoeNormP=profileNormals(center)[center.length-1];
+    let shoeTri=Math.max(16,half*0.4);
+    svg.push(`<path d="${profileShoeTriangle(shoeNormP,-half,shoeTri)}" fill="#050505"/>`);
+    svg.push(`<path d="${profileShoeTriangle(shoeNormP,half,shoeTri)}" fill="#050505"/>`);
     let isLiner=String(s.Type||'').toLowerCase().includes('liner');
     if(isLiner){
       let outer=state.strings.filter(p=>n(p.ShoeMD)>=topMD&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.OD)-n(b.OD))[0];
