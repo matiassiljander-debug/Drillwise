@@ -117,7 +117,7 @@ function interp(rows,xcol,ycol,x){let a=rows.filter(r=>Number.isFinite(r[xcol])&
 
 
 function renderSchematic(){
-  $('page-schematic').innerHTML=`<div class="card"><h3 style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">Well schematic <span style="font-weight:400;color:var(--muted);font-size:14px">${esc(state.general.caseName||'Well')}</span></h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them. Double-click a text box to delete it.</p><div class="actions"><button class="dark" onclick="drawSchematic()">Refresh schematic</button><button onclick="resetSchematicLabels()">Reset label positions</button><button onclick="addSchematicNote()">Add text box</button></div><div id="schematicPlot" class="plot" style="min-height:0"></div></div>`;
+  $('page-schematic').innerHTML=`<div class="card"><h3 style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">Well schematic <span style="font-weight:400;color:var(--muted);font-size:14px">${esc(state.general.caseName||'Well')}</span></h3><p class="note">Classic subsea vertical schematic | seabed top reference | grey cement blocks. Text labels can be moved by dragging them. Double-click a text box to delete it.</p><div class="actions"><button class="dark" style="font-size:11px;padding:5px 9px" onclick="drawSchematic()">Refresh schematic</button><button style="font-size:11px;padding:5px 9px" onclick="resetSchematicLabels()">Reset label positions</button><button style="font-size:11px;padding:5px 9px" onclick="addSchematicNote()">Add text box</button></div><div id="schematicPlot" class="plot" style="min-height:0"></div></div>`;
   drawSchematic();
 }
 function addSchematicNote(){
@@ -238,12 +238,12 @@ function drawSchematic(){
   let sbY=Y(seabedTVD());
   if(sbY>T)svg.push(`<rect x="0" y="${T}" width="${W}" height="${sbY-T}" fill="#eaf6fb"/>`);
   svg.push(`<line x1="68" y1="${sbY}" x2="935" y2="${sbY}" stroke="#777" stroke-width="1.6" stroke-dasharray="7,8"/>`);
-  svg.push(schemLabel('seabed_label',952,sbY+4,'Seabed / top of subsea casing schematic',13,'#111'));
+  svg.push(schemLabel('seabed_label',952,sbY+4,'Seabed / top of subsea casing schematic',16,'#111'));
 
   state.sections.forEach((s,i)=>{
     let y1=Y(s.FromTVD), y2=Y(s.ToTVD), fill=i%2===0?cream:blue1;
     svg.push(`<rect x="${sectionX}" y="${y1}" width="${sectionW}" height="${Math.max(2,y2-y1)}" fill="${fill}" stroke="#e0e9ee"/>`);
-    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,15,dark));
+    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,18,dark));
   });
 
   state.strings.forEach((s,i)=>{
@@ -260,7 +260,7 @@ function drawSchematic(){
     let tri=35;svg.push(`<polygon points="${cx-hp},${yb} ${cx-hp-tri},${yb} ${cx-hp},${yb-tri}" fill="#050505"/><polygon points="${cx+hp},${yb} ${cx+hp+tri},${yb} ${cx+hp},${yb-tri}" fill="#050505"/>`);
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD), n(s.OD)%1===0?0:3):'';
     let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'');
-    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,15,dark));
+    svg.push(schemLabel('shoe_'+idx,shoeLabelX,yb-5,`${label} | ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`,18,dark));
     shoeAnchors.push({key:'shoe_'+idx,x:cx-hp,y:yb});
     if(type.includes('liner')){
       let prev=state.strings.filter(p=>n(p.ShoeTVD)>=n(s.TopTVD)&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.OD)-n(b.OD))[0];
@@ -285,7 +285,7 @@ function drawSchematic(){
       let leftTickX=cx-hp-linerClear;
       let rightTickX=cx+hp+linerClear;
       svg.push(`<rect x="${leftX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${leftX+boxW}" y1="${ylt-2}" x2="${leftTickX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/><rect x="${rightX}" y="${yBox}" width="${boxW}" height="${boxH}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/><line x1="${rightTickX}" y1="${ylt-2}" x2="${rightX}" y2="${ylt-2}" stroke="${dark}" stroke-width="1.5"/>`);
-      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',13,dark));
+      svg.push(schemLabel('liner_hanger',cx+outer+22,ylt-4,'Liner hanger / TOL',16,dark));
     }
   });
 
