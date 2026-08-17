@@ -13,7 +13,7 @@ const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElem
 function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
 const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
 const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
-const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],ppfg:[],wp:[],strings:[],sections:[],kickSettings:{},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[]};
+const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],ppfg:[],wp:[],strings:[],sections:[],kickSettings:{},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[],schematicProfileLabelPos:{}};
 const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function seabedTVD(){return (Number.isFinite(n(state.general.waterDepth))?n(state.general.waterDepth):0)+(Number.isFinite(n(state.general.airGap))?n(state.general.airGap):0)}
 function defaults(){let sb=seabedTVD();state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:sb,ShoeTVD:515,TopMD:sb,ShoeMD:515,TopCementMD:sb,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:sb,ShoeTVD:1400,TopMD:sb,ShoeMD:1400,TopCementMD:sb,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:sb,ShoeTVD:2840,TopMD:sb,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}]};defaults();
@@ -349,7 +349,7 @@ function drawSchematic(){
    straight-vertical style of the main Well Schematic page. Pipe/hole widths are stylised
    (constant pixel offset), but the path shape and MD/TVD depths are proportional. */
 function renderSchematicProfile(){
-  $('page-schematicProfile').innerHTML=`<div class="card" id="schematicProfileCard"><h3>Well schematic (profile)</h3><p class="note">Draws the wellbore in its actual curved shape from the uploaded wellpath survey, with casing, cement and open hole following the path. Depths and shape are proportional; pipe widths are stylised. Independent of the main Well Schematic page.</p><div class="actions"><button class="dark" style="font-size:11px;padding:5px 9px" onclick="drawSchematicProfile()">Refresh schematic</button><button style="font-size:11px;padding:5px 9px" onclick="toggleSchematicProfileFullscreen()">Fullscreen</button></div><div id="schematicProfilePlot" class="plot" style="min-height:0"></div></div>`;
+  $('page-schematicProfile').innerHTML=`<div class="card" id="schematicProfileCard"><h3>Well schematic (profile)</h3><p class="note">Draws the wellbore in its actual curved shape from the uploaded wellpath survey, with casing, cement and open hole following the path. Depths and shape are proportional; pipe widths are stylised. Text labels can be dragged to a clearer spot. Independent of the main Well Schematic page.</p><div class="actions"><button class="dark" style="font-size:11px;padding:5px 9px" onclick="drawSchematicProfile()">Refresh schematic</button><button style="font-size:11px;padding:5px 9px" onclick="resetSchematicProfileLabels()">Reset label positions</button><button style="font-size:11px;padding:5px 9px" onclick="toggleSchematicProfileFullscreen()">Fullscreen</button></div><div id="schematicProfilePlot" class="plot" style="min-height:0"></div></div>`;
   drawSchematicProfile();
 }
 function toggleSchematicProfileFullscreen(){
@@ -416,18 +416,54 @@ function profileWavyPath(center,radius,sign,periodMd){
     return `${(p.x+p.nx*off).toFixed(1)},${(p.y+p.ny*off).toFixed(1)}`;
   }).join(' L');
 }
+function profileLabel(key,x,y,text,size=15,colour='#06263a',anchor='start'){
+  let p=state.schematicProfileLabelPos&&state.schematicProfileLabelPos[key]?state.schematicProfileLabelPos[key]:{dx:0,dy:0};
+  let px=x+(p.dx||0), py=y+(p.dy||0);
+  let lines=Array.isArray(text)?text:[text];
+  let tspans=lines.map((line,i)=>`<tspan x="${px}" dy="${i===0?0:size+2}">${esc(line)}</tspan>`).join('');
+  return `<text class="profile-label" data-key="${esc(key)}" x="${px}" y="${py}" text-anchor="${anchor}" font-family="Segoe UI, Arial" font-size="${size}" fill="${colour}" style="cursor:move;user-select:none">${tspans}</text>`;
+}
+function resetSchematicProfileLabels(){state.schematicProfileLabelPos={};drawSchematicProfile()}
+function makeProfileLabelsDraggable(){
+  let svg=document.querySelector('#schematicProfilePlot svg'); if(!svg)return;
+  let active=null,activeLine=null,start={x:0,y:0},orig={x:0,y:0},origLine={x2:0,y2:0};
+  function pt(evt){let p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
+  svg.querySelectorAll('.profile-label').forEach(el=>{
+    if(!el.dataset.baseX){el.dataset.baseX=el.getAttribute('x');el.dataset.baseY=el.getAttribute('y')}
+    el.addEventListener('mousedown',evt=>{
+      evt.preventDefault();active=el;let p=pt(evt);start={x:p.x,y:p.y};orig={x:n(el.getAttribute('x')),y:n(el.getAttribute('y'))};
+      activeLine=svg.querySelector('[data-leader-for="'+CSS.escape(el.dataset.key)+'"]');
+      origLine=activeLine?{x2:n(activeLine.getAttribute('x2')),y2:n(activeLine.getAttribute('y2'))}:{x2:0,y2:0};
+    });
+  });
+  window.addEventListener('mousemove',evt=>{
+    if(!active)return;
+    let p=pt(evt),nx=orig.x+p.x-start.x,ny=orig.y+p.y-start.y;
+    active.setAttribute('x',nx);active.setAttribute('y',ny);
+    [...active.querySelectorAll('tspan')].forEach(ts=>ts.setAttribute('x',nx));
+    if(activeLine){activeLine.setAttribute('x2',origLine.x2+(nx-orig.x));activeLine.setAttribute('y2',origLine.y2+(ny-orig.y))}
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!active)return;
+    let k=active.dataset.key;
+    if(!state.schematicProfileLabelPos)state.schematicProfileLabelPos={};
+    state.schematicProfileLabelPos[k]={dx:n(active.getAttribute('x'))-(n(active.dataset.baseX)||0),dy:n(active.getAttribute('y'))-(n(active.dataset.baseY)||0)};
+    active=null;activeLine=null;
+  });
+}
 function drawSchematicProfile(){
   let rows=vsRows();
   let host=$('schematicProfilePlot');
   if(rows.length<2){host.innerHTML='<p class="note">Upload a wellpath/survey on the Inputs tab to draw the profile schematic.</p>';return}
-  let W=1000,H=1360,T=130,B=50,L=110,R=250,plotW=W-L-R,plotH=H-T-B;
+  let W=1000,H=1360,T=130,B=50,L=230,R=260,plotW=W-L-R,plotH=H-T-B;
   let mdMax=Math.max(rows[rows.length-1].MD,...state.strings.map(s=>n(s.ShoeMD)||0),...state.sections.map(s=>n(s.ToMD)||0));
   let tdTVD=Math.max(maxDepth(),rows[rows.length-1].TVD);
   let hdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
   let Y=tvd=>T+(Number(tvd)||0)/tdTVD*plotH, X=hd=>L+(Number(hd)||0)/hdMax*plotW;
   let sb=seabedTVD();
   let maxOD=Math.max(...state.strings.map(s=>n(s.OD)||0),36);
-  let hp=od=>7+(n(od)||0)/Math.max(maxOD,1)*26;
+  let hp=od=>10+(n(od)||0)/Math.max(maxOD,1)*44;
+  let leftColX=Math.max(20,L-hp(maxOD)-20), rightColX=L+plotW+hp(maxOD)+20;
   let dark='#06263a',grey='#a8a8a8',greyStroke='#6f6f6f';
   let isFs=document.fullscreenElement===$('schematicProfileCard');
   let maxH=isFs?'calc(100vh - 50px)':'calc(100vh - 100px)';
@@ -440,10 +476,10 @@ function drawSchematicProfile(){
   let seaY=T-6, waveW=W;
   let wave='M0,'+seaY+' '+Array.from({length:20},(_, i)=>`${(i+1)/20*waveW},${seaY+(i%2?4:-4)}`).map(s=>'L'+s).join(' ');
   svg.push(`<path d="${wave}" fill="none" stroke="#1f77b4" stroke-width="1.4"/>`);
-  svg.push(`<text x="${surfX+40}" y="${T-70}" font-family="Segoe UI, Arial" font-size="15" fill="#111">${fmt(n(state.general.airGap),0)} m air gap</text>`);
-  svg.push(`<text x="${surfX+40}" y="${seaY+18}" font-family="Segoe UI, Arial" font-size="15" fill="#1f77b4">${fmt(n(state.general.waterDepth),0)} m water depth</text>`);
-  svg.push(`<line x1="${L-30}" y1="${sbY}" x2="${W-40}" y2="${sbY}" stroke="#777" stroke-width="1.4" stroke-dasharray="7,8"/>`);
-  svg.push(`<text x="${L-30}" y="${sbY-6}" font-family="Segoe UI, Arial" font-size="15" fill="#111">Seabed</text>`);
+  svg.push(profileLabel('airgap',surfX+40,T-70,`${fmt(n(state.general.airGap),0)} m air gap`,15,'#111'));
+  svg.push(profileLabel('waterdepth',surfX+40,seaY+18,`${fmt(n(state.general.waterDepth),0)} m water depth`,15,'#1f77b4'));
+  svg.push(`<line x1="${leftColX-10}" y1="${sbY}" x2="${W-40}" y2="${sbY}" stroke="#777" stroke-width="1.4" stroke-dasharray="7,8"/>`);
+  svg.push(profileLabel('seabed',leftColX,sbY-6,'Seabed',15,'#111','end'));
   // Wellpath centerline (thin guide)
   let fullCenter=profileCenterline(rows,0,mdMax,X,Y);
   svg.push(`<path d="M${fullCenter.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')}" fill="none" stroke="#d8e2e7" stroke-width="1"/>`);
@@ -456,16 +492,17 @@ function drawSchematicProfile(){
     svg.push(`<path d="${profileBandPath(center,-half,half)}" fill="url(#pipeHatch)" stroke="${dark}" stroke-width="1.6"/>`);
     let cemTopMD=Number.isFinite(n(s.TopCementMD))?n(s.TopCementMD):NaN;
     if(Number.isFinite(cemTopMD)&&shoeMD>cemTopMD){
-      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=9;
+      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=12;
       svg.push(`<path d="${profileBandPath(cemCenter,half,half+cw)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
       svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
     }
     let shoePt=center[center.length-1];
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD),n(s.OD)%1===0?0:3):'';
-    let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'').replace(/ liner/i,'');
-    labelsLeft.push({x:shoePt.x,y:shoePt.y,halfPx:half,text:`${label} shoe | ${fmt(n(s.ShoeMD),0)} mMD / ${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`});
+    let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'').replace(/ liner/i,'').replace(/\s*shoe$/i,'');
+    labelsLeft.push({key:'shoe_'+idx,x:shoePt.x,y:shoePt.y,halfPx:half,text:[`${label} shoe | ${fmt(n(s.ShoeMD),0)} mMD`,`${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`]});
   });
   // Open hole below the deepest shoe, to TD
+  let labelsRight=[];
   let deepestString=state.strings.slice().sort((a,b)=>n(b.ShoeMD)-n(a.ShoeMD))[0];
   let openFromMD=deepestString?n(deepestString.ShoeMD):0;
   let openHalf=deepestString?hp(n(deepestString.OD))*0.85:hp(maxOD)*0.4;
@@ -477,20 +514,27 @@ function drawSchematicProfile(){
     let tdPt=openCenter[openCenter.length-1];
     let holeSec=state.sections.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0];
     let holeText=holeSec?`${fmt(n(holeSec.Hole),2)}\" open hole (~${fmt(mdMax-openFromMD,0)}m)`:'Open hole';
-    svg.push(`<text x="${Math.min(W-20,tdPt.x+40)}" y="${tdPt.y-10}" font-family="Segoe UI, Arial" font-size="15" fill="${dark}">${esc(holeText)}</text>`);
-    svg.push(`<text x="${Math.min(W-20,tdPt.x+40)}" y="${tdPt.y+8}" font-family="Segoe UI, Arial" font-size="15" fill="${dark}">TD ${fmt(mdMax,0)} mMD / ${fmt(tdTVD,0)} mTVD</text>`);
+    labelsRight.push({key:'openhole',x:tdPt.x,y:tdPt.y-10,halfPx:openHalf,text:holeText});
+    labelsRight.push({key:'td',x:tdPt.x,y:tdPt.y+8,halfPx:openHalf,text:`TD ${fmt(mdMax,0)} mMD / ${fmt(tdTVD,0)} mTVD`});
   }
-  // Left-side shoe labels with leader lines, stacked to avoid overlap
-  labelsLeft.sort((a,b)=>a.y-b.y);
-  let minGap=34,lastY=-999;
-  labelsLeft.forEach(l=>{
-    let ly=Math.max(l.y,lastY+minGap);
-    lastY=ly;
-    svg.push(`<line x1="${(l.x-l.halfPx).toFixed(1)}" y1="${l.y}" x2="24" y2="${ly}" stroke="#9aa7ad" stroke-width="1" stroke-dasharray="2,3"/>`);
-    svg.push(`<text x="10" y="${ly+4}" font-family="Segoe UI, Arial" font-size="15" fill="${dark}">${esc(l.text)}</text>`);
-  });
+  // Left-side shoe labels, right-side open-hole/TD labels: fixed columns with leader
+  // lines so default positions stay clear of the curve; all labels are also draggable.
+  let stackLabels=(list,colX,side,size,minGap)=>{
+    list.sort((a,b)=>a.y-b.y);
+    let lastY=-999;
+    list.forEach(l=>{
+      let ly=Math.max(l.y,lastY+minGap);
+      lastY=ly;
+      let anchorX=side==='left'?l.x-l.halfPx:l.x+l.halfPx;
+      svg.push(`<line data-leader-for="${l.key}" x1="${anchorX.toFixed(1)}" y1="${l.y.toFixed(1)}" x2="${colX}" y2="${ly.toFixed(1)}" stroke="#9aa7ad" stroke-width="1" stroke-dasharray="2,3"/>`);
+      svg.push(profileLabel(l.key,colX,ly+4,l.text,size,dark,side==='left'?'end':'start'));
+    });
+  };
+  stackLabels(labelsLeft,leftColX,'left',13,42);
+  stackLabels(labelsRight,rightColX,'right',13,28);
   svg.push(`</svg>`);
   host.innerHTML=svg.join('');
+  makeProfileLabelsDraggable();
 }
 
 function rmRows(){let wd=state.general.waterDepth||0,sw=state.general.swDensity||1.03,ob=state.general.requiredOB||0,rows=[];state.sections.filter(s=>s.RM===true||String(s.RM).toLowerCase()==='true').forEach(s=>{let pts=state.ppfg.filter(p=>p.TVD>=s.FromTVD&&p.TVD<=s.ToTVD);if(!pts.length)pts=[{TVD:s.FromTVD},{TVD:s.ToTVD}];pts.forEach(p=>{let pp=Number.isFinite(p.PP)?p.PP:interp(state.ppfg,'TVD','PP',p.TVD),req=Number.isFinite(pp)?((pp+ob)*p.TVD-sw*wd)/Math.max(p.TVD-wd-state.general.airGap,.1):NaN;rows.push({Section:s.Section,TVD:p.TVD,MW:s.MW,PP:pp,FG:p.FG,Shmin:p.Shmin,Collapse:p.Collapse,RequiredMW:req,Margin:s.MW-req,Pass:(s.MW-req)>=0?'OK':'LOW'})})});return rows}
@@ -1062,13 +1106,13 @@ function renderExport(){$('page-export').innerHTML='<div class="card"><h3>Checks
   function blankString(){return {String:'',Type:'',TopTVD:'',ShoeTVD:'',TopMD:'',ShoeMD:'',TopCementMD:'',OD:'',ID:'',Label:''};}
   function blankSection(){return {Section:'',Hole:'',FromTVD:'',ToTVD:'',FromMD:'',ToMD:'',MW:'',RM:false};}
   function safeRead(){try{if($('caseName'))state.general.caseName=$('caseName').value;if($('waterDepth'))state.general.waterDepth=n($('waterDepth').value);if($('airGap'))state.general.airGap=n($('airGap').value);if($('swDensity'))state.general.swDensity=n($('swDensity').value);if($('requiredOB'))state.general.requiredOB=n($('requiredOB').value);if($('stringsTable'))state.strings=readEdit('stringsTable');if($('sectionsTable'))state.sections=readEdit('sectionsTable');}catch(e){console.warn('v1.6.2 input read skipped',e)}}
-  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells)}}
-  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];render();}
+  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos)}}
+  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};render();}
   window.drillwiseSaveWell=function(){localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));drillwiseSetSaveStatus('Saved current well in this browser.');};
   window.drillwiseLoadWell=function(){let txt=localStorage.getItem(SAVE_KEY);if(!txt){drillwiseSetSaveStatus('No saved well found in this browser.');return;}try{restore(JSON.parse(txt));drillwiseSetSaveStatus('Loaded saved well from this browser.')}catch(e){drillwiseSetSaveStatus('Could not load saved well: '+e.message)}};
   window.drillwiseDownloadWell=function(){let data=JSON.stringify(snapshot(),null,2);let name=(state.general&&state.general.caseName?String(state.general.caseName):'DrillWise_well').replace(/[^a-z0-9_-]+/gi,'_');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);drillwiseSetSaveStatus('Downloaded well JSON.');};
   window.drillwiseImportWell=function(inp){let f=inp&&inp.files&&inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{restore(JSON.parse(String(r.result||'')));drillwiseSetSaveStatus('Imported well JSON: '+f.name)}catch(e){drillwiseSetSaveStatus('Import failed: '+e.message)}};r.readAsText(f);};
-  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.ppfg=[];state.wp=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
+  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.ppfg=[];state.wp=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
   window.drillwiseAddCasingRow=function(){safeRead();state.strings.push(blankString());renderInput();};
   window.drillwiseAddSectionRow=function(){safeRead();state.sections.push(blankSection());renderInput();};
   window.drillwiseApplyAndViewSchematic=function(){safeRead();state.active='schematic';render();};
