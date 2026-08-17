@@ -428,6 +428,28 @@ function profileHangerBoxPath(p,off,widthAcross,lenAlong){
   let c3={x:cx1+tx*lenAlong/2,y:cy1+ty*lenAlong/2}, c4={x:cx1-tx*lenAlong/2,y:cy1-ty*lenAlong/2};
   return `M${c1.x.toFixed(1)},${c1.y.toFixed(1)} L${c2.x.toFixed(1)},${c2.y.toFixed(1)} L${c3.x.toFixed(1)},${c3.y.toFixed(1)} L${c4.x.toFixed(1)},${c4.y.toFixed(1)} Z`;
 }
+function profileRigIcon(surfX,crownY,baseY,dark){
+  let legL=t=>surfX-6-27*t, legR=t=>surfX+6+27*t, y=t=>crownY+(baseY-crownY)*t;
+  let parts=[`<rect x="${surfX-10}" y="${crownY-6}" width="20" height="8" fill="${dark}"/>`];
+  parts.push(`<line x1="${surfX-6}" y1="${crownY}" x2="${legL(1)}" y2="${baseY}" stroke="${dark}" stroke-width="3"/>`);
+  parts.push(`<line x1="${surfX+6}" y1="${crownY}" x2="${legR(1)}" y2="${baseY}" stroke="${dark}" stroke-width="3"/>`);
+  let levels=[0.3,0.55,0.8],prev=null;
+  levels.forEach(t=>{
+    let xl=legL(t),xr=legR(t),yy=y(t);
+    parts.push(`<line x1="${xl.toFixed(1)}" y1="${yy.toFixed(1)}" x2="${xr.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="${dark}" stroke-width="1.5"/>`);
+    if(prev){
+      parts.push(`<line x1="${prev.xl.toFixed(1)}" y1="${prev.y.toFixed(1)}" x2="${xr.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="${dark}" stroke-width="1"/>`);
+      parts.push(`<line x1="${prev.xr.toFixed(1)}" y1="${prev.y.toFixed(1)}" x2="${xl.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="${dark}" stroke-width="1"/>`);
+    }
+    prev={xl,xr,y:yy};
+  });
+  parts.push(`<line x1="${prev.xl.toFixed(1)}" y1="${prev.y.toFixed(1)}" x2="${legR(1).toFixed(1)}" y2="${baseY}" stroke="${dark}" stroke-width="1"/>`);
+  parts.push(`<line x1="${prev.xr.toFixed(1)}" y1="${prev.y.toFixed(1)}" x2="${legL(1).toFixed(1)}" y2="${baseY}" stroke="${dark}" stroke-width="1"/>`);
+  parts.push(`<rect x="${surfX-42}" y="${baseY-5}" width="84" height="7" fill="${dark}"/>`);
+  parts.push(`<line x1="${surfX}" y1="${crownY-6}" x2="${surfX}" y2="${crownY-18}" stroke="${dark}" stroke-width="1.5"/>`);
+  parts.push(`<circle cx="${surfX}" cy="${crownY-20}" r="2.2" fill="#d62728"/>`);
+  return parts.join('');
+}
 function profileLabel(key,x,y,text,size=15,colour='#06263a',anchor='start'){
   let p=state.schematicProfileLabelPos&&state.schematicProfileLabelPos[key]?state.schematicProfileLabelPos[key]:{dx:0,dy:0};
   let px=x+(p.dx||0), py=y+(p.dy||0);
@@ -467,14 +489,34 @@ function drawSchematicProfile(){
   let rows=vsRows();
   let host=$('schematicProfilePlot');
   if(rows.length<2){host.innerHTML='<p class="note">Upload a wellpath/survey on the Inputs tab to draw the profile schematic.</p>';return}
-  let W=1000,H=1360,T=130,B=50,L=270,R=290,plotW=W-L-R,plotH=H-T-B;
+  let W=1000,H=1360,T=130,B=50,L=330,R=340,plotW=W-L-R,plotH=H-T-B;
   let mdMax=Math.max(rows[rows.length-1].MD,...state.strings.map(s=>n(s.ShoeMD)||0),...state.sections.map(s=>n(s.ToMD)||0));
   let tdTVD=Math.max(maxDepth(),rows[rows.length-1].TVD);
   let hdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
-  let Y=tvd=>T+(Number(tvd)||0)/tdTVD*plotH, X=hd=>L+(Number(hd)||0)/hdMax*plotW;
+  let X=hd=>L+(Number(hd)||0)/hdMax*plotW;
+  // Not-to-scale: the conductor is often a very short TVD interval and would be an
+  // unreadable sliver at true scale, so it's guaranteed a minimum visual height, with
+  // the rest of the well compressed slightly to make room (same approach as the main
+  // Well Schematic page).
+  let Y=tvd=>T+(Number(tvd)||0)/tdTVD*plotH;
+  let condStrP=state.strings.find(s=>String(s.Type||'').toLowerCase()==='conductor');
+  if(condStrP){
+    let condTop=n(condStrP.TopTVD), condShoe=n(condStrP.ShoeTVD);
+    if(Number.isFinite(condTop)&&Number.isFinite(condShoe)&&condShoe>condTop&&tdTVD>0){
+      let condSpan=condShoe-condTop, minCondPx=Math.min(plotH*0.5,Math.max(90,condSpan/tdTVD*plotH));
+      let outsideDepth=Math.max(1e-6,condTop+(tdTVD-condShoe)), outsidePx=plotH-minCondPx;
+      let p1=condTop>0?condTop/outsideDepth*outsidePx:0, p3=outsidePx-p1;
+      Y=tvd=>{
+        let dd=Number(tvd)||0;
+        if(dd<=condTop)return T+(condTop>0?dd/condTop*p1:0);
+        if(dd<=condShoe)return T+p1+(dd-condTop)/condSpan*minCondPx;
+        return T+p1+minCondPx+(dd-condShoe)/Math.max(1e-6,tdTVD-condShoe)*p3;
+      };
+    }
+  }
   let sb=seabedTVD();
   let maxOD=Math.max(...state.strings.map(s=>n(s.OD)||0),36);
-  let hp=od=>14+(n(od)||0)/Math.max(maxOD,1)*60;
+  let hp=od=>18+(n(od)||0)/Math.max(maxOD,1)*80;
   let leftColX=Math.max(20,L-hp(maxOD)-20), rightColX=L+plotW+hp(maxOD)+20;
   let dark='#06263a',grey='#a8a8a8',greyStroke='#6f6f6f';
   let isFs=document.fullscreenElement===$('schematicProfileCard');
@@ -483,14 +525,14 @@ function drawSchematicProfile(){
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
   // Rig, sea, air gap, seabed
   let surfX=X(vsAt(rows,0)?vsAt(rows,0).HD:0), sbY=Y(sb);
-  svg.push(`<rect x="${surfX-46}" y="${T-92}" width="92" height="14" fill="${dark}"/><rect x="${surfX-6}" y="${T-92}" width="12" height="14" fill="${dark}"/><line x1="${surfX}" y1="${T-92}" x2="${surfX-30}" y2="${T-6}" stroke="${dark}" stroke-width="4"/><line x1="${surfX}" y1="${T-92}" x2="${surfX+30}" y2="${T-6}" stroke="${dark}" stroke-width="4"/>`);
+  svg.push(profileRigIcon(surfX,T-96,T-6,dark));
   let seaY=T-6, waveW=W;
   let wave='M0,'+seaY+' '+Array.from({length:20},(_, i)=>`${(i+1)/20*waveW},${seaY+(i%2?4:-4)}`).map(s=>'L'+s).join(' ');
   svg.push(`<path d="${wave}" fill="none" stroke="#1f77b4" stroke-width="1.4"/>`);
-  svg.push(profileLabel('airgap',surfX+40,T-70,`${fmt(n(state.general.airGap),0)} m air gap`,17,'#111'));
-  svg.push(profileLabel('waterdepth',surfX+40,seaY+18,`${fmt(n(state.general.waterDepth),0)} m water depth`,17,'#1f77b4'));
+  svg.push(profileLabel('airgap',surfX+50,T-74,`${fmt(n(state.general.airGap),0)} m air gap`,19,'#111'));
+  svg.push(profileLabel('waterdepth',surfX+50,seaY+20,`${fmt(n(state.general.waterDepth),0)} m water depth`,19,'#1f77b4'));
   svg.push(`<line x1="${leftColX-10}" y1="${sbY}" x2="${W-40}" y2="${sbY}" stroke="#777" stroke-width="1.4" stroke-dasharray="7,8"/>`);
-  svg.push(profileLabel('seabed',leftColX,sbY-6,'Seabed',17,'#111','end'));
+  svg.push(profileLabel('seabed',leftColX,sbY-6,'Seabed',19,'#111','end'));
   // Wellpath centerline (thin guide)
   let fullCenter=profileCenterline(rows,0,mdMax,X,Y);
   svg.push(`<path d="M${fullCenter.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')}" fill="none" stroke="#d8e2e7" stroke-width="1"/>`);
@@ -504,7 +546,7 @@ function drawSchematicProfile(){
     svg.push(`<path d="${profileOffsetLine(center,half)}" fill="none" stroke="${dark}" stroke-width="4"/>`);
     let cemTopMD=Number.isFinite(n(s.TopCementMD))?n(s.TopCementMD):NaN;
     if(Number.isFinite(cemTopMD)&&shoeMD>cemTopMD){
-      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=12;
+      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=16;
       svg.push(`<path d="${profileBandPath(cemCenter,half,half+cw)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
       svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
     }
@@ -516,7 +558,7 @@ function drawSchematicProfile(){
       let innerOff=half+2, boxSpan=Math.max(6,Math.min(13,outerHalf-innerOff-2)), boxLen=17;
       svg.push(`<path d="${profileHangerBoxPath(topP,innerOff,boxSpan,boxLen)}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/>`);
       svg.push(`<path d="${profileHangerBoxPath(topP,-innerOff,-boxSpan,boxLen)}" fill="${grey}" stroke="${dark}" stroke-width="1.5"/>`);
-      svg.push(profileLabel('hanger_'+idx,topP.x+topP.nx*(innerOff+boxSpan+18),topP.y+topP.ny*(innerOff+boxSpan+18),'Liner hanger / TOL',13,dark));
+      svg.push(profileLabel('hanger_'+idx,topP.x+topP.nx*(innerOff+boxSpan+20),topP.y+topP.ny*(innerOff+boxSpan+20),'Liner hanger / TOL',14,dark));
     }
     let shoePt=center[center.length-1];
     let odText=Number.isFinite(n(s.OD))?fmt(n(s.OD),n(s.OD)%1===0?0:3):'';
@@ -552,8 +594,8 @@ function drawSchematicProfile(){
       svg.push(profileLabel(l.key,colX,ly+4,l.text,size,dark,side==='left'?'end':'start'));
     });
   };
-  stackLabels(labelsLeft,leftColX,'left',14,46);
-  stackLabels(labelsRight,rightColX,'right',14,30);
+  stackLabels(labelsLeft,leftColX,'left',16,52);
+  stackLabels(labelsRight,rightColX,'right',16,34);
   svg.push(`</svg>`);
   host.innerHTML=svg.join('');
   makeProfileLabelsDraggable();
