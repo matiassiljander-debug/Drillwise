@@ -492,7 +492,15 @@ function drawSchematicProfile(){
   let W=1000,H=1360,T=130,B=50,L=330,R=340,plotW=W-L-R,plotH=H-T-B;
   let mdMax=Math.max(rows[rows.length-1].MD,...state.strings.map(s=>n(s.ShoeMD)||0),...state.sections.map(s=>n(s.ToMD)||0));
   let tdTVD=Math.max(maxDepth(),rows[rows.length-1].TVD);
-  let hdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
+  let rawHdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
+  // The reservoir/open-hole interval is drawn horizontal regardless of its true
+  // inclination (standard well-schematic convention), so it needs horizontal budget
+  // reserved beyond the true curve's reach: 1 MD unit of "flat" hole = 1 HD unit.
+  let deepestStringP=state.strings.slice().sort((a,b)=>n(b.ShoeMD)-n(a.ShoeMD))[0];
+  let openFromMD=deepestStringP?n(deepestStringP.ShoeMD):0;
+  let openFromV=vsAt(rows,openFromMD);
+  let openMDLen=Math.max(0,mdMax-openFromMD);
+  let hdMax=Math.max(rawHdMax,(openFromV?openFromV.HD:rawHdMax)+openMDLen);
   let X=hd=>L+(Number(hd)||0)/hdMax*plotW;
   // Not-to-scale: the conductor is often a very short TVD interval and would be an
   // unreadable sliver at true scale, so it's guaranteed a minimum visual height, with
@@ -533,8 +541,9 @@ function drawSchematicProfile(){
   svg.push(profileLabel('waterdepth',surfX+50,seaY+20,`${fmt(n(state.general.waterDepth),0)} m water depth`,19,'#1f77b4'));
   svg.push(`<line x1="${leftColX-10}" y1="${sbY}" x2="${W-40}" y2="${sbY}" stroke="#777" stroke-width="1.4" stroke-dasharray="7,8"/>`);
   svg.push(profileLabel('seabed',leftColX,sbY-6,'Seabed',19,'#111','end'));
-  // Wellpath centerline (thin guide)
-  let fullCenter=profileCenterline(rows,0,mdMax,X,Y);
+  // Wellpath centerline (thin guide), only through the cased hole - the open-hole/
+  // reservoir interval below is drawn straightened, so the true curve isn't shown there.
+  let fullCenter=profileCenterline(rows,0,Math.min(mdMax,openFromMD)||1,X,Y);
   svg.push(`<path d="M${fullCenter.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')}" fill="none" stroke="#d8e2e7" stroke-width="1"/>`);
   // Casing/liner strings
   let labelsLeft=[];
@@ -565,13 +574,13 @@ function drawSchematicProfile(){
     let label=(s.Label||s.String||'shoe').replace(/ casing/i,'').replace(/ conductor/i,'').replace(/ liner/i,'').replace(/\s*shoe$/i,'');
     labelsLeft.push({key:'shoe_'+idx,x:shoePt.x,y:shoePt.y,halfPx:half,text:[`${label} shoe | ${fmt(n(s.ShoeMD),0)} mMD`,`${fmt(n(s.ShoeTVD),0)} mTVD | OD ${odText}`]});
   });
-  // Open hole below the deepest shoe, to TD
+  // Open hole below the deepest shoe, to TD - drawn horizontal (standard well-schematic
+  // convention for the reservoir/production interval) regardless of true inclination.
   let labelsRight=[];
-  let deepestString=state.strings.slice().sort((a,b)=>n(b.ShoeMD)-n(a.ShoeMD))[0];
-  let openFromMD=deepestString?n(deepestString.ShoeMD):0;
-  let openHalf=deepestString?hp(n(deepestString.OD))*0.85:hp(maxOD)*0.4;
-  if(mdMax>openFromMD){
-    let openCenter=profileCenterline(rows,openFromMD,mdMax,X,Y);
+  let openHalf=deepestStringP?hp(n(deepestStringP.OD))*0.85:hp(maxOD)*0.4;
+  if(mdMax>openFromMD&&openFromV){
+    let steps=60,openCenter=[];
+    for(let i=0;i<=steps;i++){let t=i/steps,md=openFromMD+openMDLen*t;openCenter.push({md,x:X(openFromV.HD+openMDLen*t),y:Y(openFromV.TVD)})}
     let period=(mdMax-openFromMD)/6;
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
