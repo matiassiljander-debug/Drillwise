@@ -420,6 +420,13 @@ function profileOffsetLine(center,off){
   let pts=profileNormals(center);
   return 'M'+pts.map(p=>`${(p.x+p.nx*off).toFixed(1)},${(p.y+p.ny*off).toFixed(1)}`).join(' L');
 }
+function profileShoeTriangle(p,off,tri){
+  let tx=p.ny, ty=-p.nx, sign=off<0?-1:1, outOff=off+sign*tri;
+  let p1={x:p.x+p.nx*off,y:p.y+p.ny*off};
+  let p2={x:p.x+p.nx*outOff,y:p.y+p.ny*outOff};
+  let p3={x:p1.x-tx*tri,y:p1.y-ty*tri};
+  return `M${p1.x.toFixed(1)},${p1.y.toFixed(1)} L${p2.x.toFixed(1)},${p2.y.toFixed(1)} L${p3.x.toFixed(1)},${p3.y.toFixed(1)} Z`;
+}
 function profileHangerBoxPath(p,off,widthAcross,lenAlong){
   let tx=p.ny, ty=-p.nx;
   let cx0=p.x+p.nx*off, cy0=p.y+p.ny*off;
@@ -502,26 +509,58 @@ function drawSchematicProfile(){
   let openMDLen=Math.max(0,mdMax-openFromMD);
   let hdMax=Math.max(rawHdMax,(openFromV?openFromV.HD:rawHdMax)+openMDLen);
   let X=hd=>L+(Number(hd)||0)/hdMax*plotW;
-  // Not-to-scale: the conductor is often a very short TVD interval and would be an
-  // unreadable sliver at true scale, so it's guaranteed a minimum visual height, with
-  // the rest of the well compressed slightly to make room (same approach as the main
-  // Well Schematic page).
-  let Y=tvd=>T+(Number(tvd)||0)/tdTVD*plotH;
-  let condStrP=state.strings.find(s=>String(s.Type||'').toLowerCase()==='conductor');
-  if(condStrP){
-    let condTop=n(condStrP.TopTVD), condShoe=n(condStrP.ShoeTVD);
-    if(Number.isFinite(condTop)&&Number.isFinite(condShoe)&&condShoe>condTop&&tdTVD>0){
-      let condSpan=condShoe-condTop, minCondPx=Math.min(plotH*0.5,Math.max(90,condSpan/tdTVD*plotH));
-      let outsideDepth=Math.max(1e-6,condTop+(tdTVD-condShoe)), outsidePx=plotH-minCondPx;
-      let p1=condTop>0?condTop/outsideDepth*outsidePx:0, p3=outsidePx-p1;
-      Y=tvd=>{
-        let dd=Number(tvd)||0;
-        if(dd<=condTop)return T+(condTop>0?dd/condTop*p1:0);
-        if(dd<=condShoe)return T+p1+(dd-condTop)/condSpan*minCondPx;
-        return T+p1+minCondPx+(dd-condShoe)/Math.max(1e-6,tdTVD-condShoe)*p3;
-      };
+  // Not-to-scale: any two key depths (a shoe, a liner top, the conductor's own span)
+  // can end up very close together - e.g. a liner hanging just below the previous
+  // shoe - and would collide/overlap at true scale. Every casing/liner top and shoe
+  // depth is guaranteed a minimum pixel gap from its neighbour; depth ranges that
+  // already have plenty of natural room absorb the slack, so the well still reads
+  // top-to-bottom in the right proportions overall.
+  // Uses the trajectory-interpolated TVD for each string's MD (not the stored
+  // TopTVD/ShoeTVD fields) so breakpoints line up exactly with where the pipe is
+  // actually drawn, even if the stored TVD hasn't been re-synced to the trajectory.
+  let keyTVDs=new Set([0,tdTVD]);
+  state.strings.forEach(s=>{
+    let topV=vsAt(rows,n(s.TopMD)), shoeV=vsAt(rows,n(s.ShoeMD));
+    let top=topV?topV.TVD:n(s.TopTVD), shoe=shoeV?shoeV.TVD:n(s.ShoeTVD);
+    if(Number.isFinite(top))keyTVDs.add(Math.max(0,Math.min(top,tdTVD)));
+    if(Number.isFinite(shoe))keyTVDs.add(Math.max(0,Math.min(shoe,tdTVD)));
+  });
+  let breakpoints=[...keyTVDs].sort((a,b)=>a-b);
+  let MIN_GAP=70;
+  let naturalGaps=breakpoints.slice(1).map((b,i)=>Math.max(0,(b-breakpoints[i])/tdTVD*plotH));
+  // Water-filling allocation: segments that need boosting to MIN_GAP get it first (locked),
+  // and the remaining budget is shared proportionally among the segments that still have
+  // natural room to spare - rather than shrinking every segment uniformly (which would
+  // undo the boost for the tight spots that actually needed it).
+  let effectiveGaps=naturalGaps.slice();
+  let locked=new Array(naturalGaps.length).fill(false);
+  for(let iter=0;iter<naturalGaps.length+1;iter++){
+    let lockedSum=0,flexSum=0,flexIdx=[];
+    for(let i=0;i<naturalGaps.length;i++){
+      if(locked[i])lockedSum+=effectiveGaps[i];
+      else{flexSum+=naturalGaps[i];flexIdx.push(i)}
     }
+    if(!flexIdx.length)break;
+    let scale=flexSum>0?(plotH-lockedSum)/flexSum:0;
+    let newlyLocked=false;
+    flexIdx.forEach(i=>{
+      let candidate=naturalGaps[i]*scale;
+      if(candidate<MIN_GAP){effectiveGaps[i]=MIN_GAP;locked[i]=true;newlyLocked=true}
+      else effectiveGaps[i]=candidate;
+    });
+    if(!newlyLocked)break;
   }
+  let totalEffective=effectiveGaps.reduce((a,b)=>a+b,0);
+  if(totalEffective>plotH){let s=plotH/totalEffective;effectiveGaps=effectiveGaps.map(g=>g*s)}
+  let cumPx=[0];
+  effectiveGaps.forEach(g=>cumPx.push(cumPx[cumPx.length-1]+g));
+  let Y=tvd=>{
+    let dd=Math.max(0,Math.min(Number(tvd)||0,tdTVD));
+    let i=0; while(i<breakpoints.length-2&&dd>breakpoints[i+1])i++;
+    let segStart=breakpoints[i], segEnd=breakpoints[i+1]!==undefined?breakpoints[i+1]:tdTVD;
+    let segSpan=Math.max(1e-6,segEnd-segStart), t=(dd-segStart)/segSpan;
+    return T+cumPx[i]+t*(cumPx[i+1]-cumPx[i]);
+  };
   let sb=seabedTVD();
   let maxOD=Math.max(...state.strings.map(s=>n(s.OD)||0),36);
   let hp=od=>18+(n(od)||0)/Math.max(maxOD,1)*80;
@@ -530,6 +569,7 @@ function drawSchematicProfile(){
   let isFs=document.fullscreenElement===$('schematicProfileCard');
   let maxH=isFs?'calc(100vh - 50px)':'calc(100vh - 100px)';
   let svg=[`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:${maxH};min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`];
+  svg.push(`<defs><pattern id="cementHatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#ececec"/><line x1="0" y1="0" x2="0" y2="8" stroke="#6f6f6f" stroke-width="2.5"/></pattern></defs>`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
   // Rig, sea, air gap, seabed
   let surfX=X(vsAt(rows,0)?vsAt(rows,0).HD:0), sbY=Y(sb);
@@ -555,10 +595,14 @@ function drawSchematicProfile(){
     svg.push(`<path d="${profileOffsetLine(center,half)}" fill="none" stroke="${dark}" stroke-width="4"/>`);
     let cemTopMD=Number.isFinite(n(s.TopCementMD))?n(s.TopCementMD):NaN;
     if(Number.isFinite(cemTopMD)&&shoeMD>cemTopMD){
-      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=16;
-      svg.push(`<path d="${profileBandPath(cemCenter,half,half+cw)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
-      svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="${grey}" stroke="${greyStroke}" stroke-width="1"/>`);
+      let cemCenter=profileCenterline(rows,cemTopMD,shoeMD,X,Y), cw=22;
+      svg.push(`<path d="${profileBandPath(cemCenter,half,half+cw)}" fill="url(#cementHatch)" stroke="${greyStroke}" stroke-width="1.5"/>`);
+      svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="url(#cementHatch)" stroke="${greyStroke}" stroke-width="1.5"/>`);
     }
+    let shoeNormP=profileNormals(center)[center.length-1];
+    let shoeTri=Math.max(16,half*0.4);
+    svg.push(`<path d="${profileShoeTriangle(shoeNormP,-half,shoeTri)}" fill="#050505"/>`);
+    svg.push(`<path d="${profileShoeTriangle(shoeNormP,half,shoeTri)}" fill="#050505"/>`);
     let isLiner=String(s.Type||'').toLowerCase().includes('liner');
     if(isLiner){
       let outer=state.strings.filter(p=>n(p.ShoeMD)>=topMD&&n(p.OD)>n(s.OD)).sort((a,b)=>n(a.OD)-n(b.OD))[0];
