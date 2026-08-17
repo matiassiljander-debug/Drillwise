@@ -208,7 +208,26 @@ function makeSchematicLabelsDraggable(){
 }
 function drawSchematic(){
   // Restored reference schematic, enlarged slightly and with draggable labels.
-  let W=1294,H=1278,T=36,B=42,td=maxDepth(),plotH=H-T-B,Y=d=>T+(Number(d)||0)/Math.max(td,1)*plotH;
+  let W=1294,H=1278,T=36,B=42,td=maxDepth(),plotH=H-T-B;
+  // Not-to-scale schematic: the conductor is often a very short interval and would be an
+  // unreadable sliver at true scale, so it's guaranteed a minimum visual height, with the
+  // rest of the well compressed slightly to make room.
+  let Y=d=>T+(Number(d)||0)/Math.max(td,1)*plotH;
+  let condStr=state.strings.find(s=>String(s.Type||'').toLowerCase()==='conductor');
+  if(condStr){
+    let condTop=n(condStr.TopTVD), condShoe=n(condStr.ShoeTVD);
+    if(Number.isFinite(condTop)&&Number.isFinite(condShoe)&&condShoe>condTop&&td>0){
+      let condSpan=condShoe-condTop, minCondPx=Math.min(plotH*0.5,Math.max(90,condSpan/td*plotH));
+      let outsideDepth=Math.max(1e-6,condTop+(td-condShoe)), outsidePx=plotH-minCondPx;
+      let p1=condTop>0?condTop/outsideDepth*outsidePx:0, p3=outsidePx-p1;
+      Y=d=>{
+        let dd=Number(d)||0;
+        if(dd<=condTop)return T+(condTop>0?dd/condTop*p1:0);
+        if(dd<=condShoe)return T+p1+(dd-condTop)/condSpan*minCondPx;
+        return T+p1+minCondPx+(dd-condShoe)/Math.max(1e-6,td-condShoe)*p3;
+      };
+    }
+  }
   let cx=555, svg=[];
   let maxOD=Math.max(...state.strings.map(s=>n(s.OD)||0),36);
   let half=od=>38+(n(od)||0)/Math.max(maxOD,1)*124;
