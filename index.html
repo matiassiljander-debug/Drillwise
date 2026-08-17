@@ -430,7 +430,7 @@ function drawSchematicProfile(){
   let hp=od=>7+(n(od)||0)/Math.max(maxOD,1)*26;
   let dark='#06263a',grey='#a8a8a8',greyStroke='#6f6f6f';
   let isFs=document.fullscreenElement===$('schematicProfileCard');
-  let maxH=isFs?'calc(100vh - 60px)':'calc(100vh - 160px)';
+  let maxH=isFs?'calc(100vh - 50px)':'calc(100vh - 100px)';
   let svg=[`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:auto;height:auto;max-width:100%;max-height:${maxH};min-height:420px;background:white;border:0;border-radius:0;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">`];
   svg.push(`<defs><pattern id="pipeHatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#dfe6ea"/><line x1="0" y1="0" x2="0" y2="8" stroke="#8a97a0" stroke-width="3"/></pattern></defs>`);
   svg.push(`<rect width="${W}" height="${H}" fill="white"/>`);
