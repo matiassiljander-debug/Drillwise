@@ -623,8 +623,17 @@ function drawSchematicProfile(){
   let labelsRight=[];
   let openHalf=deepestStringP?hp(n(deepestStringP.OD))*0.85:hp(maxOD)*0.4;
   if(mdMax>openFromMD&&openFromV){
-    let steps=60,openCenter=[];
-    for(let i=0;i<=steps;i++){let t=i/steps,md=openFromMD+openMDLen*t;openCenter.push({md,x:X(openFromV.HD+openMDLen*t),y:Y(openFromV.TVD)})}
+    let steps=60,openCenter=[],transMD=Math.min(openMDLen,150);
+    for(let i=0;i<=steps;i++){
+      let t=i/steps,md=openFromMD+openMDLen*t;
+      let flatHD=openFromV.HD+(md-openFromMD), flatTVD=openFromV.TVD, hd,tvd;
+      if(transMD>0&&md-openFromMD<transMD){
+        let localT=(md-openFromMD)/transMD, ease=localT*localT*(3-2*localT);
+        let trueV=vsAt(rows,md), trueHD=trueV?trueV.HD:flatHD, trueTVD=trueV?trueV.TVD:flatTVD;
+        hd=trueHD+(flatHD-trueHD)*ease; tvd=trueTVD+(flatTVD-trueTVD)*ease;
+      } else { hd=flatHD; tvd=flatTVD; }
+      openCenter.push({md,x:X(hd),y:Y(tvd)});
+    }
     let period=(mdMax-openFromMD)/6;
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
