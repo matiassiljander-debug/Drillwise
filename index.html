@@ -924,9 +924,12 @@ function initNativeTrajectory(rows){
     // fitting all three into one uniform scale - so TVD always fills the
     // box's height exactly (matching the left-edge tick labels) and reads
     // as the dominant axis, like a real trajectory plot, regardless of how
-    // wide the well's horizontal departure is.
-    let sxy=boxW*0.78/rotatedXSpan*state3d.zoom;
-    let sz=boxH/Math.max(rr.maxZ-rr.minZ,1)*state3d.zoom;
+    // wide the well's horizontal departure is. boxW/boxH already carry the
+    // zoom factor (the box itself scales with zoom, see drawBox), so it must
+    // not be applied again here - that would compound quadratically and let
+    // the trajectory spill back outside the box at higher zoom levels.
+    let sxy=boxW*0.78/rotatedXSpan;
+    let sz=boxH/Math.max(rr.maxZ-rr.minZ,1);
     let tvd=Number.isFinite(tvdOverride)?tvdOverride:n(pt.TVD);
     let x=(n(pt.EW)-rr.cx)*sxy, y=(n(pt.NS)-rr.cy)*sxy, z=-(tvd-rr.cz)*sz;
     let cz=Math.cos(state3d.rotZ),sz2=Math.sin(state3d.rotZ),cx=Math.cos(state3d.rotX),sx=Math.sin(state3d.rotX);
@@ -940,10 +943,17 @@ function initNativeTrajectory(rows){
     ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);
 
     // Tall, narrow box so TVD reads as the dominant axis, like a vertical
-    // section, rather than a roughly cubic box.
-    const boxH=Math.max(260,h-118), boxW=Math.min(w-96,boxH*0.6);
-    const top=Math.max(78,(h-boxH)/2-6), bottom=top+boxH;
-    const left=w/2-boxW/2, right=w/2+boxW/2;
+    // section, rather than a roughly cubic box. The box scales with zoom
+    // around its own (fixed) center, same as the trajectory data, so the
+    // wellpath stays inside the box instead of spilling past a static frame.
+    const baseBoxH=Math.max(260,h-118), baseBoxW=Math.min(w-96,baseBoxH*0.6);
+    const baseTop=Math.max(78,(h-baseBoxH)/2-6), baseBottom=baseTop+baseBoxH;
+    const baseLeft=w/2-baseBoxW/2, baseRight=w/2+baseBoxW/2;
+    const boxCenterX=(baseLeft+baseRight)/2, boxCenterY=(baseTop+baseBottom)/2;
+    const zoom3d=(state3d&&state3d.zoom)||1;
+    const boxH=baseBoxH*zoom3d, boxW=baseBoxW*zoom3d;
+    const top=boxCenterY-boxH/2, bottom=boxCenterY+boxH/2;
+    const left=boxCenterX-boxW/2, right=boxCenterX+boxW/2;
     const depthX=Math.min(64,boxW*0.22), depthY=-Math.min(50,boxH*0.08);
     const front={tl:[left,top],tr:[right,top],br:[right,bottom],bl:[left,bottom]};
     const back={tl:[left+depthX,top+depthY],tr:[right+depthX,top+depthY],br:[right+depthX,bottom+depthY],bl:[left+depthX,bottom+depthY]};
