@@ -770,20 +770,31 @@ function calculateECD(sec,s){
     if(oRem<=1e-6){oi++; oRem=outerBreaks[oi]?outerBreaks[oi].len:0}
     if(iRem<=1e-6){ii++; iRem=innerBreaks[ii]?innerBreaks[ii].len:0}
   }
-  let anyTurbulent=false, totalLossBar=0, lossAtShoeBar=0, Qgpm=n(s.Q)*0.264172, rhoPpg=n(s.mw)*8.345404;
+  // Computed entirely in SI units via the standard "narrow slot" (parallel-plate)
+  // approximation for concentric annular Bingham-plastic flow, rather than the
+  // usual oilfield-unit empirical formula - every constant here is either an exact
+  // unit conversion or derived directly from parabolic laminar-flow first
+  // principles (dP/L = 12*mu*V/h^2 viscous term; dP/L = 2*tauY/h yield term), so
+  // it can be checked independently rather than trusted from memory.
+  let anyTurbulent=false, totalLossBar=0, lossAtShoeBar=0;
+  let Qm3s=n(s.Q)/60000, rhoKgm3=n(s.mw)*1000;
   let rows=segments.map(seg=>{
     let valid=seg.Dh>seg.Dp;
     if(!valid)warnings.push(`Segment ${fmt(totalLen-seg.to,0)}-${fmt(totalLen-seg.from,0)} mMD: pipe OD (${fmt(seg.Dp,3)} in) exceeds hole/casing ID (${fmt(seg.Dh,3)} in) - skipped.`);
-    let Va=valid?24.51*Qgpm/(seg.Dh*seg.Dh-seg.Dp*seg.Dp):0;
-    let dPper1000ft=valid?(n(s.PV)*Va/(1000*Math.pow(seg.Dh-seg.Dp,2))+n(s.YP)/(200*(seg.Dh-seg.Dp))):0;
-    let dPpsi=dPper1000ft*(seg.len*3.28084/1000), dPbar=dPpsi*0.0689476;
-    let muE=valid?n(s.PV)+n(s.YP)*(seg.Dh-seg.Dp)/(300*Math.max(Va,0.001)):0;
-    let NRe=valid?15.47*rhoPpg*Va*(seg.Dh-seg.Dp)/Math.max(muE,0.001):0;
-    let turbulent=valid&&NRe>3100;
+    let DhM=seg.Dh*0.0254, DpM=seg.Dp*0.0254, hM=Math.max(DhM-DpM,1e-6);
+    let areaM2=Math.PI/4*(DhM*DhM-DpM*DpM);
+    let Vms=valid&&areaM2>0?Qm3s/areaM2:0;
+    let muP=n(s.PV)*0.001, tauY=n(s.YP)*0.478803;
+    let dPdL_Pam=valid?(12*muP*Vms/(hM*hM)+2*tauY/hM):0;
+    let dPbar=dPdL_Pam*seg.len/100000;
+    let muApp=valid?muP+tauY*hM/(6*Math.max(Vms,1e-9)):0;
+    let NRe=valid?rhoKgm3*Vms*hM/Math.max(muApp,1e-9):0;
+    let turbulent=valid&&NRe>2100;
     if(turbulent)anyTurbulent=true;
     totalLossBar+=dPbar;
     if(seg.to<=openLen+1e-6)lossAtShoeBar+=dPbar;
-    return {FromMD:fmt(totalLen-seg.to,0),ToMD:fmt(totalLen-seg.from,0),Dh_in:seg.Dh,Dp_in:seg.Dp,Va_ftmin:Va,dP_bar:dPbar,NRe:Math.round(NRe)||0,Regime:valid?(turbulent?'Turbulent':'Laminar'):'n/a'};
+    let Va_ftmin=Vms*196.85;
+    return {FromMD:fmt(totalLen-seg.to,0),ToMD:fmt(totalLen-seg.from,0),Dh_in:seg.Dh,Dp_in:seg.Dp,Va_ftmin,dP_bar:dPbar,NRe:Math.round(NRe)||0,Regime:valid?(turbulent?'Turbulent':'Laminar'):'n/a'};
   });
   let tvdAtBit=n(sec.ToTVD), tvdAtShoe=n(sec.FromTVD);
   let ecdAtBit=Number.isFinite(tvdAtBit)&&tvdAtBit>0?n(s.mw)+totalLossBar/(BAR_PER_M_SG*tvdAtBit):NaN;
