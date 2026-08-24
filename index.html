@@ -792,7 +792,11 @@ function calculateECD(sec,s){
     let turbulent=valid&&NRe>2100;
     if(turbulent)anyTurbulent=true;
     totalLossBar+=dPbar;
-    if(seg.to<=openLen+1e-6)lossAtShoeBar+=dPbar;
+    // Pressure at a given depth = hydrostatic + the friction loss ABOVE that depth
+    // (the fluid still has to overcome that friction on its way up to surface), not
+    // the friction below it. So ECD at the shoe needs the cased-hole segments (from
+    // the shoe up to surface, seg.from>=openLen), not the open-hole ones below it.
+    if(seg.from>=openLen-1e-6)lossAtShoeBar+=dPbar;
     let Va_ftmin=Vms*196.85;
     return {FromMD:fmt(totalLen-seg.to,0),ToMD:fmt(totalLen-seg.from,0),Dh_in:seg.Dh,Dp_in:seg.Dp,Va_ftmin,dP_bar:dPbar,NRe:Math.round(NRe)||0,Regime:valid?(turbulent?'Turbulent':'Laminar'):'n/a'};
   });
