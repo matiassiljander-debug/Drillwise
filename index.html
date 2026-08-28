@@ -291,7 +291,7 @@ function drawSchematic(){
   state.sections.forEach((s,i)=>{
     let y1=Y(s.FromTVD), y2=Y(s.ToTVD), fill=i%2===0?cream:blue1;
     svg.push(`<rect x="${sectionX}" y="${y1}" width="${sectionW}" height="${Math.max(2,y2-y1)}" fill="${fill}" stroke="#e0e9ee"/>`);
-    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromTVD),0)}-${fmt(n(s.ToTVD),0)} mTVD | MW ${fmt(n(s.MW),2)} SG`,18,dark));
+    svg.push(schemLabel('section_'+i,810,(y1+y2)/2,`${s.Section} | ${fmt(n(s.FromMD),0)}-${fmt(n(s.ToMD),0)} mMD | MW ${fmt(n(s.MW),2)} SG`,18,dark));
   });
 
   state.strings.forEach((s,i)=>{
