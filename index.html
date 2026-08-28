@@ -390,7 +390,16 @@ function vsAt(rows,md){
   if(!rows.length)return null;
   if(md<=rows[0].MD)return {TVD:rows[0].TVD,HD:rows[0].HD};
   let last=rows[rows.length-1];
-  if(md>=last.MD)return {TVD:last.TVD,HD:last.HD};
+  if(md>=last.MD){
+    if(rows.length>=2){
+      let prev=rows[rows.length-2],dmd=last.MD-prev.MD;
+      if(dmd>0){
+        let extra=md-last.MD;
+        return {TVD:last.TVD+(last.TVD-prev.TVD)/dmd*extra,HD:last.HD+(last.HD-prev.HD)/dmd*extra};
+      }
+    }
+    return {TVD:last.TVD,HD:last.HD};
+  }
   for(let i=0;i<rows.length-1;i++){
     let a=rows[i],b=rows[i+1];
     if(md>=a.MD&&md<=b.MD){
@@ -640,7 +649,7 @@ function drawSchematicProfile(){
       svg.push(`<path d="${profileBandPath(cemCenter,-half-cw,-half)}" fill="url(#cementHatch)" stroke="${greyStroke}" stroke-width="1.5"/>`);
     }
     let shoeNormP=profileNormals(center)[center.length-1];
-    let shoeTri=Math.max(16,half*0.4);
+    let shoeTri=20;
     svg.push(`<path d="${profileShoeTriangle(shoeNormP,-half,shoeTri)}" fill="#050505"/>`);
     svg.push(`<path d="${profileShoeTriangle(shoeNormP,half,shoeTri)}" fill="#050505"/>`);
     let isLiner=String(s.Type||'').toLowerCase().includes('liner');
