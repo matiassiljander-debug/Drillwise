@@ -390,16 +390,7 @@ function vsAt(rows,md){
   if(!rows.length)return null;
   if(md<=rows[0].MD)return {TVD:rows[0].TVD,HD:rows[0].HD};
   let last=rows[rows.length-1];
-  if(md>=last.MD){
-    if(rows.length>=2){
-      let prev=rows[rows.length-2],dmd=last.MD-prev.MD;
-      if(dmd>0){
-        let extra=md-last.MD;
-        return {TVD:last.TVD+(last.TVD-prev.TVD)/dmd*extra,HD:last.HD+(last.HD-prev.HD)/dmd*extra};
-      }
-    }
-    return {TVD:last.TVD,HD:last.HD};
-  }
+  if(md>=last.MD)return {TVD:last.TVD,HD:last.HD};
   for(let i=0;i<rows.length-1;i++){
     let a=rows[i],b=rows[i+1];
     if(md>=a.MD&&md<=b.MD){
@@ -1007,6 +998,14 @@ function deadReckonNsEw(rows){
 function trajectoryRows(){
   let rows=(state.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))).map(r=>({MD:n(r.MD),TVD:n(r.TVD),Inc:n(r.Inc),Azimuth:n(r.Azimuth),NS:n(r.NS),EW:n(r.EW)})).sort((a,b)=>a.MD-b.MD);
   deadReckonNsEw(rows);
+  if(rows.length){
+    let last=rows[rows.length-1];
+    let neededMD=Math.max(0,...state.sections.map(s=>n(s.ToMD)||0),...state.strings.map(s=>n(s.ShoeMD)||0));
+    if(neededMD>last.MD+0.5&&Number.isFinite(last.Inc)&&Number.isFinite(last.Azimuth)&&Number.isFinite(last.NS)&&Number.isFinite(last.EW)){
+      let p=minCurveStep(last.MD,last.Inc,last.Azimuth,last.NS,last.EW,last.TVD,neededMD,last.Inc,last.Azimuth);
+      rows.push({MD:neededMD,TVD:p.TVD,Inc:last.Inc,Azimuth:last.Azimuth,NS:p.NS,EW:p.EW});
+    }
+  }
   return rows;
 }
 function toggleShoesOnTrajectory(el){state.showShoesOnTrajectory=!!el.checked;drawWellpathViews(trajectoryRows());}
