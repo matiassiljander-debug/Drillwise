@@ -832,7 +832,7 @@ function calculateECD(sec,s){
 }
 function renderECD(){
   let valid=ecdSections();
-  $('page-ecd').innerHTML=`<div class="card"><h3 style="display:flex;align-items:center;gap:8px">ECD / Hydraulics${helpButton('ecd')}</h3>${helpPanel('ecd','What to check / best practices')}<p class="note">Simplified Bingham-plastic laminar annular friction model, plus a cuttings-loading add-on while drilling at the given ROP. Splits the annulus into segments using the BHA table below (top row = component nearest the bit) then drill pipe, against open hole then casing, and estimates ECD at the bit and at the previous shoe.</p><div class="grid3"><label>Section<select id="ecdSec">${valid.map((s,i)=>`<option value="${i}">${s.Section}</option>`).join('')}</select></label>${['Q','PV','YP','dpOD','dpID','mw','ROP','cuttingsSG','slipVel'].map(k=>`<label>${ECD_FIELD_INFO[k][0]} (${ECD_FIELD_INFO[k][1]})<input id="ecd_${k}" type="number" step="0.001"></label>`).join('')}</div><div class="actions"><button class="dark" onclick="calcECD()">Calculate</button></div><div id="ecdWarning" class="note bad" style="display:none;font-weight:800"></div></div><div id="ecdMetrics" class="grid3"></div><div class="card"><h3>Annulus segments (bit to surface)</h3><div id="ecdAudit"></div></div><div class="card"><h3>BHA</h3><p class="note">Top row = component nearest the bit. OD/ID in inches, Length in m. Upload Excel/CSV or edit directly.</p><div class="grid"><div><label>BHA upload Excel/CSV<input id="bhaFile" type="file" accept=".xlsx,.xls,.csv,.txt"></label><div id="bhaStatus" class="note"></div><div id="bhaMap"></div></div></div><div class="table-wrap" id="bhaTable"></div><div class="actions"><button class="dark" onclick="applyBhaTable()">Apply table</button><button onclick="drillwiseAddBhaRow()">Add row</button></div></div>`;
+  $('page-ecd').innerHTML=`<div class="card"><h3 style="display:flex;align-items:center;gap:8px">ECD / Hydraulics${helpButton('ecd')}</h3>${helpPanel('ecd','What to check / best practices')}<p class="note">Simplified Bingham-plastic laminar annular friction model, plus a cuttings-loading add-on while drilling at the given ROP. Splits the annulus into segments using the BHA table below (top row = component nearest the bit) then drill pipe, against open hole then casing, and estimates ECD at the bit and at the previous shoe.</p><div class="grid3"><label>Section<select id="ecdSec">${valid.map((s,i)=>`<option value="${i}">${s.Section}</option>`).join('')}</select></label>${['Q','PV','YP','dpOD','dpID','mw','ROP','cuttingsSG','slipVel'].map(k=>`<label>${ECD_FIELD_INFO[k][0]} (${ECD_FIELD_INFO[k][1]})<input id="ecd_${k}" type="number" step="0.001"></label>`).join('')}</div><div class="actions"><button class="dark" onclick="calcECD()">Calculate</button></div><div id="ecdWarning" class="note bad" style="display:none;font-weight:800"></div></div><div id="ecdMetrics" class="grid3"></div><div class="card"><h3>Summary - all sections</h3><p class="note">ECD at TD (bit) and at the previous shoe for every section, each using its own saved settings from the section selector above.</p><div id="ecdSummary"></div></div><div class="card"><h3>Annulus segments (bit to surface)</h3><div id="ecdAudit"></div></div><div class="card"><h3>BHA</h3><p class="note">Top row = component nearest the bit. OD/ID in inches, Length in m. Upload Excel/CSV or edit directly.</p><div class="grid"><div><label>BHA upload Excel/CSV<input id="bhaFile" type="file" accept=".xlsx,.xls,.csv,.txt"></label><div id="bhaStatus" class="note"></div><div id="bhaMap"></div></div></div><div class="table-wrap" id="bhaTable"></div><div class="actions"><button class="dark" onclick="applyBhaTable()">Apply table</button><button onclick="drillwiseAddBhaRow()">Add row</button></div></div>`;
   editTable('bhaTable',state.bha,['Component','OD','ID','Length']);
   wireUploads();
   if(!valid.length)return;
@@ -841,6 +841,12 @@ function renderECD(){
   calcECD();
 }
 function applyBhaTable(){state.bha=readEdit('bhaTable');calcECD()}
+function ecdSummaryRows(){
+  return ecdSections().map(sec=>{
+    let s=getEcd(sec), r=calculateECD(sec,s);
+    return {Section:sec.Section,Hole_in:n(sec.Hole),TD_MD:n(sec.ToMD),TD_TVD:n(sec.ToTVD),ECD_at_bit_SG:r.ecdAtBit,ECD_at_shoe_SG:r.ecdAtShoe,FG_at_shoe_SG:r.fgAtShoe,Status:Number.isFinite(r.ecdAtShoe)&&Number.isFinite(r.fgAtShoe)?(r.ecdAtShoe<=r.fgAtShoe?'OK':'LOW MARGIN'):'N/A'};
+  });
+}
 function calcECD(){
   let sec=ecdSections()[n($('ecdSec').value)||0]; if(!sec)return;
   saveEcd();
@@ -859,6 +865,7 @@ function calcECD(){
   ];
   $('ecdMetrics').innerHTML=metrics.map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b class="${m[3]}">${typeof m[1]==='number'?fmt(m[1],3):m[1]}</b> ${m[2]}</div>`).join('');
   $('ecdAudit').innerHTML=table(r.rows);
+  $('ecdSummary').innerHTML=table(ecdSummaryRows());
 }
 
 function deadReckonNsEw(rows){
