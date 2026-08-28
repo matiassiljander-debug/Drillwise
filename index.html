@@ -405,7 +405,19 @@ function profileCenterline(rows,mdFrom,mdTo,X,Y){
   let step=Math.max(3,(mdTo-mdFrom)/60), mds=[];
   for(let md=mdFrom;md<mdTo;md+=step)mds.push(md);
   mds.push(mdTo);
-  return mds.map(md=>{let v=vsAt(rows,md);return {md,x:X(v.HD),y:Y(v.TVD)}});
+  // TVD is clamped non-decreasing along this centerline before mapping to pixel Y: a well
+  // that holds slightly past 90 deg inclination can have TVD tick backwards by a metre or
+  // two (e.g. a horizontal landing section) - real and fine for the true trajectory, but
+  // fatal for this schematic's Y axis, which assumes depth only increases, and would
+  // otherwise fold the drawn pipe back over itself. Purely a display convention: no other
+  // consumer of vsAt()/TVD is affected.
+  let maxTVD=-Infinity;
+  return mds.map(md=>{
+    let v=vsAt(rows,md);
+    let tvd=maxTVD===-Infinity?v.TVD:Math.max(v.TVD,maxTVD);
+    maxTVD=tvd;
+    return {md,x:X(v.HD),y:Y(tvd)};
+  });
 }
 function profileNormals(center){
   return center.map((p,i)=>{
@@ -536,7 +548,12 @@ function drawSchematicProfile(){
   if(rows.length<2){host.innerHTML='<p class="note">Upload a wellpath/survey on the Inputs tab to draw the profile schematic.</p>';return}
   let W=1000,H=1360,T=130,B=50,L=330,R=340,plotW=W-L-R,plotH=H-T-B;
   let mdMax=Math.max(rows[rows.length-1].MD,...state.strings.map(s=>n(s.ShoeMD)||0),...state.sections.map(s=>n(s.ToMD)||0));
-  let tdTVD=Math.max(maxDepth(),rows[rows.length-1].TVD);
+  // Uses the deepest TVD anywhere along the trajectory, not just at TD - a well held
+  // past 90deg inclination can peak in TVD mid-trajectory and come back up slightly
+  // toward TD, and sizing the axis from TD alone would under-size it, forcing a
+  // near-zero-width breakpoint segment that the minimum-gap allocation below would
+  // then wildly over-amplify.
+  let tdTVD=Math.max(maxDepth(),...rows.map(r=>r.TVD));
   let rawHdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
   // The reservoir/open-hole interval is drawn horizontal regardless of its true
   // inclination (standard well-schematic convention), so it needs horizontal budget
@@ -669,7 +686,7 @@ function drawSchematicProfile(){
   let labelsRight=[];
   let openHalf=deepestStringP?hp(n(deepestStringP.OD))*0.85:hp(maxOD)*0.4;
   if(mdMax>openFromMD&&openFromV){
-    let steps=60,openCenter=[],transMD=Math.min(openMDLen,150);
+    let steps=60,openCenter=[],transMD=Math.min(openMDLen,150),maxOpenTVD=openFromV.TVD;
     for(let i=0;i<=steps;i++){
       let t=i/steps,md=openFromMD+openMDLen*t;
       let flatHD=openFromV.HD+(md-openFromMD), flatTVD=openFromV.TVD, hd,tvd;
@@ -678,7 +695,8 @@ function drawSchematicProfile(){
         let trueV=vsAt(rows,md), trueHD=trueV?trueV.HD:flatHD, trueTVD=trueV?trueV.TVD:flatTVD;
         hd=trueHD+(flatHD-trueHD)*ease; tvd=trueTVD+(flatTVD-trueTVD)*ease;
       } else { hd=flatHD; tvd=flatTVD; }
-      openCenter.push({md,x:X(hd),y:Y(tvd)});
+      maxOpenTVD=Math.max(tvd,maxOpenTVD); // same non-decreasing-TVD display convention as profileCenterline()
+      openCenter.push({md,x:X(hd),y:Y(maxOpenTVD)});
     }
     let period=(mdMax-openFromMD)/6;
     let openLineOff=profileLineOffset('line_openhole');
