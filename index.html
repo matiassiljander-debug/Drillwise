@@ -22,7 +22,61 @@ function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pag
 function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component'].includes(c)?v:n(v))});out.push(o)});return out}
-function applyInputs(){state.general.caseName=$('caseName').value;state.general.waterDepth=n($('waterDepth').value);state.general.airGap=n($('airGap').value);state.general.swDensity=n($('swDensity').value);state.general.requiredOB=n($('requiredOB').value);state.strings=readEdit('stringsTable');state.sections=readEdit('sectionsTable');renderInput()}
+function deriveSectionsFromStrings(prevSections){
+  let sorted=state.strings.filter(s=>Number.isFinite(n(s.ShoeMD))&&n(s.ShoeMD)>0).slice().sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
+  if(!sorted.length)return (prevSections&&prevSections.length)?prevSections:[blankSection()];
+  let hasTraj=(state.wp||[]).length>1;
+  let tvdOf=(md,fallback)=>hasTraj?mdToTvd(md):fallback;
+  return sorted.map((s,i)=>{
+    let fromMD=n(s.ShoeMD), fromTVD=tvdOf(fromMD,n(s.ShoeTVD));
+    let next=sorted[i+1];
+    // Matched by position, not by FromMD: sections are always regenerated in the same
+    // shoe-depth order as the strings, so this is stable across a shoe-depth edit (which
+    // shifts FromMD and would otherwise silently wipe that row's Hole/MW/Section name).
+    let prevMatch=(prevSections||[])[i];
+    let toMD,toTVD;
+    if(next){
+      toMD=n(next.ShoeMD);
+      toTVD=tvdOf(toMD,n(next.ShoeTVD));
+    } else {
+      // Last section (open hole below the deepest casing/liner) has no shoe below it to
+      // bound it, so its TD is the one field that stays a manual, user-entered value.
+      toMD=(prevMatch&&Number.isFinite(n(prevMatch.ToMD))&&n(prevMatch.ToMD)>fromMD)?n(prevMatch.ToMD):fromMD;
+      toTVD=tvdOf(toMD,(prevMatch&&Number.isFinite(n(prevMatch.ToTVD)))?n(prevMatch.ToTVD):fromTVD);
+    }
+    return {
+      Section:prevMatch?prevMatch.Section:'',
+      Hole:prevMatch?prevMatch.Hole:'',
+      FromTVD:fromTVD,ToTVD:toTVD,FromMD:fromMD,ToMD:toMD,
+      MW:prevMatch?prevMatch.MW:'',
+      RM:prevMatch?!!prevMatch.RM:false
+    };
+  });
+}
+function wireSectionAutoCalc(){
+  let hasTraj=(state.wp||[]).length>1;
+  let rows=[...document.querySelectorAll('#sectionsTable tbody tr')];
+  let lockNote='Auto-derived from the casing/liner table - edit shoe depths there.';
+  rows.forEach((tr,i)=>{
+    let isLast=i===rows.length-1;
+    let fromMD=tr.querySelector('input[data-col="FromMD"]'), fromTVD=tr.querySelector('input[data-col="FromTVD"]');
+    let toMD=tr.querySelector('input[data-col="ToMD"]'), toTVD=tr.querySelector('input[data-col="ToTVD"]');
+    [fromMD,fromTVD].forEach(el=>{if(el){el.disabled=true;el.title=lockNote}});
+    if(!isLast){
+      [toMD,toTVD].forEach(el=>{if(el){el.disabled=true;el.title=lockNote}});
+    } else if(toMD){
+      toMD.disabled=false; toMD.removeAttribute('title');
+      if(hasTraj){
+        if(toTVD){toTVD.value=fmt(mdToTvd(n(toMD.value)),1);toTVD.disabled=true;toTVD.title='Auto-calculated from the wellpath trajectory (ToMD -> TVD). Clear the uploaded trajectory to edit manually.'}
+        toMD.oninput=()=>{if(toTVD)toTVD.value=fmt(mdToTvd(n(toMD.value)),1)};
+      } else {
+        if(toTVD){toTVD.disabled=false;toTVD.removeAttribute('title')}
+        toMD.oninput=null;
+      }
+    }
+  });
+}
+function applyInputs(){state.general.caseName=$('caseName').value;state.general.waterDepth=n($('waterDepth').value);state.general.airGap=n($('airGap').value);state.general.swDensity=n($('swDensity').value);state.general.requiredOB=n($('requiredOB').value);state.strings=readEdit('stringsTable');state.sections=deriveSectionsFromStrings(readEdit('sectionsTable'));renderInput()}
 function setCasingTopsToSeabed(){let sb=n($('waterDepth').value)+n($('airGap').value);if(!Number.isFinite(sb))return;[...$('stringsTable').querySelectorAll('tbody tr')].forEach(tr=>{let type=tr.querySelector('input[data-col="Type"]')?.value||'';if(/liner/i.test(type))return;let topTVD=tr.querySelector('input[data-col="TopTVD"]'),topMD=tr.querySelector('input[data-col="TopMD"]');if(topTVD)topTVD.value=fmt(sb,0);if(topMD)topMD.value=fmt(sb,0)});applyInputs()}
 function renderDashboard(){
   let g=state.general, td=maxDepth(), cap=capacityTotals();
@@ -42,7 +96,7 @@ function renderDashboard(){
 
   $('page-dashboard').innerHTML=`<div class="card"><h3>Dashboard</h3><p class="note">At-a-glance summary pulled from the other tabs. Use "Open" on a card to see the full detail.</p><div class="grid3">${general.map(m=>`<div class="metric"><span class="note">${esc(m[0])}</span><br><b>${typeof m[1]==='number'?fmt(m[1],0):esc(m[1])}</b> ${esc(m[2])}</div>`).join('')}</div></div><div class="grid"><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Riser margin<button onclick="show('riser')">Open</button></h3>${rmCard}</div><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Kick tolerance<button onclick="show('kick')">Open</button></h3>${kCard}</div><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Capacity<button onclick="show('capacity')">Open</button></h3><div class="grid3">${capCard}</div></div><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Well schematic<button onclick="show('schematic')">Open</button></h3><p class="note">${state.strings.length} strings, deepest shoe ${fmt(deepestShoe,0)} mTVD.</p></div></div>`;
 }
-function renderInput(){let g=state.general;$('page-input').innerHTML=`<div class="grid"><div class="card"><h3>General</h3><div class="grid3"><label>Case<input id="caseName" value="${esc(g.caseName)}"></label><label>Water depth m<input id="waterDepth" value="${g.waterDepth}"></label><label>Air gap m<input id="airGap" value="${g.airGap}"></label><label>Seawater SG<input id="swDensity" value="${g.swDensity}"></label><label>Required OB SG<input id="requiredOB" value="${g.requiredOB}"></label></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply inputs</button></div></div><div class="card"><h3>Uploads</h3><div class="grid"><div><label>PPFG upload Excel/CSV/LAS<input id="ppfgFile" type="file" accept=".xlsx,.xls,.csv,.txt,.las"></label><div id="ppfgStatus" class="note"></div><div id="ppfgMap"></div></div><div><label>Wellpath / survey upload Excel/CSV<input id="wpFile" type="file" accept=".xlsx,.xls,.csv,.txt"></label><div id="wpStatus" class="note"></div><div id="wpMap"></div></div></div></div></div><div class="card"><h3>Casing / liner table</h3><div class="table-wrap" id="stringsTable"></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply table</button><button onclick="setCasingTopsToSeabed()">Set casing tops to seabed (water depth + air gap)</button></div></div><div class="card"><h3>Sections</h3><div class="table-wrap" id="sectionsTable"></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply table</button></div></div>`;editTable('stringsTable',state.strings,['String','Type','TopTVD','ShoeTVD','TopMD','ShoeMD','TopCementMD','OD','ID','Label']);editTable('sectionsTable',state.sections,['Section','Hole','FromTVD','ToTVD','FromMD','ToMD','MW','RM']);wireShoeTvdAutoCalc();wireUploads()}
+function renderInput(){let g=state.general;$('page-input').innerHTML=`<div class="grid"><div class="card"><h3>General</h3><div class="grid3"><label>Case<input id="caseName" value="${esc(g.caseName)}"></label><label>Water depth m<input id="waterDepth" value="${g.waterDepth}"></label><label>Air gap m<input id="airGap" value="${g.airGap}"></label><label>Seawater SG<input id="swDensity" value="${g.swDensity}"></label><label>Required OB SG<input id="requiredOB" value="${g.requiredOB}"></label></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply inputs</button></div></div><div class="card"><h3>Uploads</h3><div class="grid"><div><label>PPFG upload Excel/CSV/LAS<input id="ppfgFile" type="file" accept=".xlsx,.xls,.csv,.txt,.las"></label><div id="ppfgStatus" class="note"></div><div id="ppfgMap"></div></div><div><label>Wellpath / survey upload Excel/CSV<input id="wpFile" type="file" accept=".xlsx,.xls,.csv,.txt"></label><div id="wpStatus" class="note"></div><div id="wpMap"></div></div></div></div></div><div class="card"><h3>Casing / liner table</h3><div class="table-wrap" id="stringsTable"></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply table</button><button onclick="setCasingTopsToSeabed()">Set casing tops to seabed (water depth + air gap)</button></div></div><div class="card"><h3>Sections</h3><p class="note">One row per casing/liner string, generated from its shoe depth - edit shoe depths on the casing/liner table above, not here. Hole size, mud weight and RM stay manual. The last row (open hole below the deepest casing/liner) has no shoe to bound it, so its TD is the one depth field you set here.</p><div class="table-wrap" id="sectionsTable"></div><div class="actions"><button class="dark" onclick="applyInputs()">Apply table</button></div></div>`;editTable('stringsTable',state.strings,['String','Type','TopTVD','ShoeTVD','TopMD','ShoeMD','TopCementMD','OD','ID','Label']);editTable('sectionsTable',state.sections,['Section','Hole','FromTVD','ToTVD','FromMD','ToMD','MW','RM']);wireShoeTvdAutoCalc();wireSectionAutoCalc();wireUploads()}
 function wireShoeTvdAutoCalc(){
   let hasTraj=(state.wp||[]).length>1;
   [...document.querySelectorAll('#stringsTable tbody tr')].forEach(tr=>{
@@ -405,16 +459,19 @@ function profileCenterline(rows,mdFrom,mdTo,X,Y){
   let step=Math.max(3,(mdTo-mdFrom)/60), mds=[];
   for(let md=mdFrom;md<mdTo;md+=step)mds.push(md);
   mds.push(mdTo);
-  // TVD is clamped non-decreasing along this centerline before mapping to pixel Y: a well
-  // that holds slightly past 90 deg inclination can have TVD tick backwards by a metre or
-  // two (e.g. a horizontal landing section) - real and fine for the true trajectory, but
-  // fatal for this schematic's Y axis, which assumes depth only increases, and would
-  // otherwise fold the drawn pipe back over itself. Purely a display convention: no other
-  // consumer of vsAt()/TVD is affected.
-  let maxTVD=-Infinity;
+  // Display convention, not physics: TVD is clamped non-decreasing AND capped at this
+  // leg's own endpoint TVD, so the drawn line lands exactly on the registered shoe/TD
+  // depth even if the true trajectory overshoots it first - e.g. a well held slightly
+  // past 90 deg inclination can peak in TVD before reaching its own shoe and ease back a
+  // touch by the time it gets there. Without the cap that overshoot would either fold the
+  // pipe back on itself, or (if just clamped non-decreasing with no ceiling) blow past the
+  // shoe's own depth and collide with whatever axis space belongs to what's below it. A
+  // normal, steadily-deepening leg never reaches this cap, so it changes nothing there.
+  let endTVD=vsAt(rows,mdTo).TVD, maxTVD=-Infinity;
   return mds.map(md=>{
     let v=vsAt(rows,md);
     let tvd=maxTVD===-Infinity?v.TVD:Math.max(v.TVD,maxTVD);
+    tvd=Math.min(tvd,endTVD);
     maxTVD=tvd;
     return {md,x:X(v.HD),y:Y(tvd)};
   });
@@ -548,12 +605,7 @@ function drawSchematicProfile(){
   if(rows.length<2){host.innerHTML='<p class="note">Upload a wellpath/survey on the Inputs tab to draw the profile schematic.</p>';return}
   let W=1000,H=1360,T=130,B=50,L=330,R=340,plotW=W-L-R,plotH=H-T-B;
   let mdMax=Math.max(rows[rows.length-1].MD,...state.strings.map(s=>n(s.ShoeMD)||0),...state.sections.map(s=>n(s.ToMD)||0));
-  // Uses the deepest TVD anywhere along the trajectory, not just at TD - a well held
-  // past 90deg inclination can peak in TVD mid-trajectory and come back up slightly
-  // toward TD, and sizing the axis from TD alone would under-size it, forcing a
-  // near-zero-width breakpoint segment that the minimum-gap allocation below would
-  // then wildly over-amplify.
-  let tdTVD=Math.max(maxDepth(),...rows.map(r=>r.TVD));
+  let tdTVD=Math.max(maxDepth(),rows[rows.length-1].TVD);
   let rawHdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
   // The reservoir/open-hole interval is drawn horizontal regardless of its true
   // inclination (standard well-schematic convention), so it needs horizontal budget
