@@ -13,7 +13,7 @@ const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElem
 function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
 const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
 const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
-const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],bhaRaw:[],ppfg:[],wp:[],bha:[],strings:[],sections:[],kickSettings:{},ecdSettings:{},tdSettings:{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[],schematicProfileLabelPos:{},schematicProfileLinePos:{}};
+const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],bhaRaw:[],ppfg:[],wp:[],bha:[],strings:[],sections:[],kickSettings:{},ecdSettings:{},tdSettings:{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[],schematicProfileLabelPos:{},schematicProfileLinePos:{},targets:[]};
 const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function seabedTVD(){return (Number.isFinite(n(state.general.waterDepth))?n(state.general.waterDepth):0)+(Number.isFinite(n(state.general.airGap))?n(state.general.airGap):0)}
 function defaults(){let sb=seabedTVD();state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:sb,ShoeTVD:515,TopMD:sb,ShoeMD:515,TopCementMD:sb,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:sb,ShoeTVD:1400,TopMD:sb,ShoeMD:1400,TopCementMD:sb,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:sb,ShoeTVD:2840,TopMD:sb,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}];state.bha=[{Component:'8.5in PDC bit',OD:8.5,ID:0,Length:0.4},{Component:'Mud motor',OD:6.75,ID:3.0,Length:8},{Component:'MWD/LWD',OD:6.75,ID:3.0,Length:9},{Component:'Stabilizer',OD:8.375,ID:3.0,Length:1.5},{Component:'Non-mag drill collar',OD:6.75,ID:2.8125,Length:9},{Component:'HWDP',OD:5,ID:3.0,Length:90}]};defaults();
@@ -21,7 +21,7 @@ function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
 function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
 function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
-function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component'].includes(c)?v:n(v))});out.push(o)});return out}
+function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component','Name'].includes(c)?v:n(v))});out.push(o)});return out}
 function deriveSectionsFromStrings(prevSections){
   let sorted=state.strings.filter(s=>Number.isFinite(n(s.ShoeMD))&&n(s.ShoeMD)>0).slice().sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
   if(!sorted.length)return (prevSections&&prevSections.length)?prevSections:[blankSection()];
@@ -1110,6 +1110,18 @@ function dlsAt(rawRows,md){
   for(const r of rawRows){ if(n(r.MD)<=md+1e-6)best=n(r.DLS); else break; }
   return best;
 }
+function blankTarget(){return {Name:'',NS:'',EW:'',TVD:'',Width:50,Length:50,Height:20};}
+function validTargets(){return (state.targets||[]).filter(t=>Number.isFinite(n(t.NS))&&Number.isFinite(n(t.EW))&&Number.isFinite(n(t.TVD))&&n(t.Width)>0&&n(t.Length)>0);}
+function targetCorners(t){
+  let hw=n(t.Width)/2,hl=n(t.Length)/2,hh=Math.max(0,n(t.Height)||0)/2;
+  let cEW=n(t.EW),cNS=n(t.NS),cTVD=n(t.TVD);
+  let corners=[];
+  [-1,1].forEach(sx=>[-1,1].forEach(sy=>[-1,1].forEach(sz=>{
+    corners.push({EW:cEW+sx*hw,NS:cNS+sy*hl,TVD:cTVD+sz*hh});
+  })));
+  return corners;
+}
+function applyTargets(){state.targets=readEdit('targetsTable');drawWellpathViews(trajectoryRows());}
 function toggleShoesOnTrajectory(el){state.showShoesOnTrajectory=!!el.checked;drawWellpathViews(trajectoryRows());}
 function trajectoryShoeMarkers(rows){
   if(!state.showShoesOnTrajectory||!rows.length)return [];
@@ -1237,10 +1249,12 @@ function loadPlotlyTrajectory(cb){
 function renderWellpath(){
   let rows=trajectoryRows();
   let hasDLS=rows.some(r=>Number.isFinite(r.DLS)&&r.DLS>0);
-  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="actions"><button class="dark" onclick="calculateWellpathDLS()">Calculate DLS</button><span class="note">${hasDLS?'DLS calculated - shown in the 3D plot info, lookup, and the preview table below.':'No DLS in the uploaded survey - click to calculate it (deg/30m) from MD/Inc/Azimuth.'}</span></div><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="actions"><button class="dark" onclick="calculateWellpathDLS()">Calculate DLS</button><span class="note">${hasDLS?'DLS calculated - shown in the 3D plot info, lookup, and the preview table below.':'No DLS in the uploaded survey - click to calculate it (deg/30m) from MD/Inc/Azimuth.'}</span></div><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="card"><h3>Targets</h3><p class="note">Plotted as boxes in the 3D view and as rectangles in the plan view. NS/EW/TVD is the box centre; Width is its EW extent, Length its NS extent, Height its TVD (vertical) extent.</p><div class="table-wrap" id="targetsTable"></div><div class="actions"><button class="dark" onclick="applyTargets()">Apply targets</button><button onclick="drillwiseAddTargetRow()">Add target</button></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
   renderOffsetWellsList();
+  editTable('targetsTable',state.targets.length?state.targets:[blankTarget()],['Name','NS','EW','TVD','Width','Length','Height']);
   drawWellpathViews(rows);
 }
+function drillwiseAddTargetRow(){state.targets.push(blankTarget());renderWellpath();}
 function drawWellpathViews(rows){
   if(!rows.length){let a=$('traj3dCanvas'),b=$('trajPlanCanvas');if(a)a.outerHTML='<p class="note">Upload and map a wellpath first.</p>';if(b)b.outerHTML='<p class="note">Upload and map a wellpath first.</p>';return;}
   try{initNativeTrajectory(rows)}catch(e){console.warn('Wellpath native view failed:',e);let a=$('traj3dCanvas'),b=$('trajPlanCanvas');if(a)a.outerHTML='<p class="note">Wellpath view could not be drawn. Check mapped MD/TVD/NS/EW/Inc values.</p>';if(b)b.outerHTML='<p class="note">Plan view could not be drawn. Check mapped wellpath values.</p>';}
@@ -1293,9 +1307,11 @@ function initNativeTrajectory(rows){
   let drawRows=downsampleTrajectoryRows(densifyTrajectory(fullRows),600);
   let shoeMarkers=trajectoryShoeMarkers(fullRows);
   let offsetTracks=state.offsetWells.map(w=>({name:w.name,color:w.color,rows:downsampleTrajectoryRows(densifyTrajectory(offsetWellTrajectoryRows(w)),300)})).filter(o=>o.rows.length>1);
+  let targets=validTargets();
+  let targetPoints=targets.flatMap(targetCorners);
   let c3=$('traj3dCanvas'), cp=$('trajPlanCanvas');
   if(!c3||!cp||!drawRows.length)return;
-  function ranges(){let allRows=drawRows.concat(shoeMarkers).concat(...offsetTracks.map(o=>o.rows));let xs=allRows.map(r=>n(r.EW)),ys=allRows.map(r=>n(r.NS)),zs=allRows.map(r=>n(r.TVD));let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs);if(maxX===minX){maxX+=1;minX-=1}if(maxY===minY){maxY+=1;minY-=1}if(maxZ===minZ){maxZ+=1;minZ-=1}return {minX,maxX,minY,maxY,minZ,maxZ,cx:(minX+maxX)/2,cy:(minY+maxY)/2,cz:(minZ+maxZ)/2};}
+  function ranges(){let allRows=drawRows.concat(shoeMarkers).concat(targetPoints).concat(...offsetTracks.map(o=>o.rows));let xs=allRows.map(r=>n(r.EW)),ys=allRows.map(r=>n(r.NS)),zs=allRows.map(r=>n(r.TVD));let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs);if(maxX===minX){maxX+=1;minX-=1}if(maxY===minY){maxY+=1;minY-=1}if(maxZ===minZ){maxZ+=1;minZ-=1}return {minX,maxX,minY,maxY,minZ,maxZ,cx:(minX+maxX)/2,cy:(minY+maxY)/2,cz:(minZ+maxZ)/2};}
   let rr=ranges();
   // Default camera: side-on along the well's overall departure direction, with
   // the surface (shallowest TVD) at the top of the box - matches how a
@@ -1304,13 +1320,31 @@ function initNativeTrajectory(rows){
   let depEW=n(deepest.EW)-n(first.EW), depNS=n(deepest.NS)-n(first.NS);
   let rotZ0=(Math.abs(depEW)>1e-6||Math.abs(depNS)>1e-6)?-Math.atan2(depNS,depEW):0;
   let rotX0=-Math.PI/2;
-  // Horizontal scale is calibrated from the actual spread along the rotated
-  // (departure) axis, not a generic EW/NS extent - a curved path can wander
-  // less than its raw EW/NS bounding box once rotated to face-on.
-  let rotCos0=Math.cos(rotZ0), rotSin0=Math.sin(rotZ0);
-  let rotatedXAllRows=drawRows.concat(shoeMarkers).concat(...offsetTracks.map(o=>o.rows));
-  let rotatedXs=rotatedXAllRows.map(r=>(n(r.EW)-rr.cx)*rotCos0-(n(r.NS)-rr.cy)*rotSin0);
-  let rotatedXSpan=Math.max(1,Math.max(...rotatedXs)-Math.min(...rotatedXs));
+  // Scale is recomputed every redraw from the CURRENT live rotation/tilt (updateLiveScale,
+  // called from draw3d each frame), not just the default camera angle at load time -
+  // otherwise rotating or tilting away from the initial view can project the trajectory
+  // (or a target box) wider or taller than a frozen scale assumed, pushing it outside the
+  // box frame. A single uniform scale (not independent horizontal/vertical factors) is used
+  // so the rotation itself stays a rigid, undistorted transform at any tilt angle.
+  let scaleRefPoints=drawRows.concat(shoeMarkers).concat(targetPoints).concat(...offsetTracks.map(o=>o.rows));
+  let liveScale=1;
+  function updateLiveScale(boxW,boxH){
+    // Bounded by the largest deviation from centre on each screen axis, not the total
+    // span - the box is drawn fixed at the data's own centre (originX/Y), so an
+    // asymmetric rotated point cloud (its rotated bounding range isn't centred on the
+    // rotation origin) needs its own worse side to fit the half-budget on that side, or
+    // it overflows the box edge nearest to it even though the full span would "fit".
+    let cz=Math.cos(state3d.rotZ),sz2=Math.sin(state3d.rotZ),cx=Math.cos(state3d.rotX),sx=Math.sin(state3d.rotX);
+    let maxAbsX=1,maxAbsY=1;
+    scaleRefPoints.forEach(r=>{
+      let x=n(r.EW)-rr.cx,y=n(r.NS)-rr.cy,z=-(n(r.TVD)-rr.cz);
+      let x1=x*cz-y*sz2;
+      let y2=(x*sz2+y*cz)*cx-z*sx;
+      if(Math.abs(x1)>maxAbsX)maxAbsX=Math.abs(x1);
+      if(Math.abs(y2)>maxAbsY)maxAbsY=Math.abs(y2);
+    });
+    liveScale=Math.min(boxW*0.39/maxAbsX,boxH*0.43/maxAbsY);
+  }
   let state3d={rows:drawRows,fullRows:fullRows,rotZ:rotZ0,rotX:rotX0,zoom:1.0,rotZ0,rotX0,drag:false,lastX:0,lastY:0,selected:0,projected:[],planPts:[]};
   window._drillwiseTrajectoryView=state3d;
   window._drillwiseTrajectoryReset=function(){state3d.rotZ=state3d.rotZ0;state3d.rotX=state3d.rotX0;state3d.zoom=1.0;redraw();};
@@ -1326,20 +1360,9 @@ function initNativeTrajectory(rows){
   function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');let dls=dlsAt(fullRows,r.MD);if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°${Number.isFinite(dls)?`, DLS ${fmt(dls,2)}°/30m`:''}`;}
   function transform(pt,w,h,tvdOverride){
     let box=state3d.box||{left:0,right:w,top:0,bottom:h};
-    let boxW=Math.max(60,box.right-box.left), boxH=Math.max(60,box.bottom-box.top);
     let originX=(box.left+box.right)/2, originY=(box.top+box.bottom)/2;
-    // TVD and horizontal (EW/NS) axes are scaled independently - rather than
-    // fitting all three into one uniform scale - so TVD always fills the
-    // box's height exactly (matching the left-edge tick labels) and reads
-    // as the dominant axis, like a real trajectory plot, regardless of how
-    // wide the well's horizontal departure is. boxW/boxH already carry the
-    // zoom factor (the box itself scales with zoom, see drawBox), so it must
-    // not be applied again here - that would compound quadratically and let
-    // the trajectory spill back outside the box at higher zoom levels.
-    let sxy=boxW*0.78/rotatedXSpan;
-    let sz=boxH/Math.max(rr.maxZ-rr.minZ,1);
     let tvd=Number.isFinite(tvdOverride)?tvdOverride:n(pt.TVD);
-    let x=(n(pt.EW)-rr.cx)*sxy, y=(n(pt.NS)-rr.cy)*sxy, z=-(tvd-rr.cz)*sz;
+    let x=(n(pt.EW)-rr.cx)*liveScale, y=(n(pt.NS)-rr.cy)*liveScale, z=-(tvd-rr.cz)*liveScale;
     let cz=Math.cos(state3d.rotZ),sz2=Math.sin(state3d.rotZ),cx=Math.cos(state3d.rotX),sx=Math.sin(state3d.rotX);
     let x1=x*cz-y*sz2, y1=x*sz2+y*cz, z1=z;
     let y2=y1*cx-z1*sx, z2=y1*sx+z1*cx;
@@ -1423,7 +1446,7 @@ function initNativeTrajectory(rows){
     ctx.restore();
   }
 
-  function draw3d(){let dim=resizeCanvas(c3),w=dim.w,h=dim.h,ctx=c3.getContext('2d');ctx.clearRect(0,0,w,h);drawBox(ctx,w,h);let pts=drawRows.map(r=>transform(r,w,h));state3d.projected=pts;
+  function draw3d(){let dim=resizeCanvas(c3),w=dim.w,h=dim.h,ctx=c3.getContext('2d');ctx.clearRect(0,0,w,h);drawBox(ctx,w,h);let liveBox=state3d.box;updateLiveScale(Math.max(60,liveBox.right-liveBox.left),Math.max(60,liveBox.bottom-liveBox.top));let pts=drawRows.map(r=>transform(r,w,h));state3d.projected=pts;
     // Floor shadow: the same path with TVD flattened to the deepest point,
     // giving a depth cue similar to a plan-view shadow cast on the floor.
     ctx.save();ctx.strokeStyle='#b7c9d3';ctx.lineWidth=1.4;ctx.setLineDash([1,3]);ctx.lineJoin='round';ctx.beginPath();
@@ -1454,6 +1477,22 @@ function initNativeTrajectory(rows){
         ctx.beginPath();ctx.moveTo(p.x-6,p.y-9);ctx.lineTo(p.x+6,p.y-9);ctx.lineTo(p.x,p.y);ctx.closePath();
         ctx.fillStyle='#b45309';ctx.fill();ctx.lineWidth=1;ctx.strokeStyle='#7c2d12';ctx.stroke();
         ctx.fillStyle='#7c2d12';ctx.fillText(m.label,p.x+9,p.y+yOff);
+      });
+      ctx.restore();
+    }
+    if(targets.length){
+      ctx.save();
+      const edges=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+      targets.forEach((tg,ti)=>{
+        let corners=targetCorners(tg).map(c=>transform(c,w,h));
+        ctx.strokeStyle='#7c3aed';ctx.lineWidth=1.6;ctx.setLineDash([4,3]);
+        ctx.beginPath();
+        edges.forEach(([a,b])=>{ctx.moveTo(corners[a].x,corners[a].y);ctx.lineTo(corners[b].x,corners[b].y)});
+        ctx.stroke();ctx.setLineDash([]);
+        let cxp=corners.reduce((s,c)=>s+c.x,0)/8, cyp=Math.min(...corners.map(c=>c.y));
+        ctx.font='11px Segoe UI';ctx.fillStyle='#5b21b6';ctx.textAlign='center';
+        ctx.fillText(tg.Name||('Target '+(ti+1)),cxp,cyp-8);
+        ctx.textAlign='left';
       });
       ctx.restore();
     }
@@ -1495,6 +1534,16 @@ function initNativeTrajectory(rows){
         ctx.fillStyle='#7c2d12';ctx.fillText(m.label,mx+8,my+yOff);
       });
       ctx.restore();
+    }
+    if(targets.length){
+      ctx.save();ctx.font='11px Segoe UI';ctx.textAlign='center';ctx.strokeStyle='#7c3aed';ctx.lineWidth=1.6;ctx.setLineDash([4,3]);
+      targets.forEach((tg,ti)=>{
+        let hw=n(tg.Width)/2*scale, hl=n(tg.Length)/2*scale;
+        let mx=w/2+(n(tg.EW)-cx)*scale, my=h/2-(n(tg.NS)-cy)*scale;
+        ctx.beginPath();ctx.rect(mx-hw,my-hl,hw*2,hl*2);ctx.stroke();
+        ctx.fillStyle='#5b21b6';ctx.fillText(tg.Name||('Target '+(ti+1)),mx,my-hl-6);
+      });
+      ctx.setLineDash([]);ctx.textAlign='left';ctx.restore();
     }
     let s=pts[state3d.selected];if(s){ctx.strokeStyle='#b91c1c';ctx.fillStyle='#b91c1c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.x,s.y,7,0,Math.PI*2);ctx.stroke();ctx.font='12px Segoe UI';ctx.fillText(`${fmt(s.raw.MD,0)} mMD`,s.x+10,s.y-8);}ctx.fillStyle='#607987';ctx.font='12px Segoe UI';ctx.fillText('Plan view',22,30);ctx.restore();}
   function redraw(){draw3d();drawPlan();updateNote(state3d.selected)}
@@ -1651,13 +1700,13 @@ function renderExport(){$('page-export').innerHTML='<div class="card"><h3>Checks
   function blankSection(){return {Section:'',Hole:'',FromTVD:'',ToTVD:'',FromMD:'',ToMD:'',MW:'',RM:false};}
   function blankBhaRow(){return {Component:'',OD:'',ID:'',Length:''};}
   function safeRead(){try{if($('caseName'))state.general.caseName=$('caseName').value;if($('waterDepth'))state.general.waterDepth=n($('waterDepth').value);if($('airGap'))state.general.airGap=n($('airGap').value);if($('swDensity'))state.general.swDensity=n($('swDensity').value);if($('requiredOB'))state.general.requiredOB=n($('requiredOB').value);if($('stringsTable'))state.strings=readEdit('stringsTable');if($('sectionsTable'))state.sections=readEdit('sectionsTable');}catch(e){console.warn('v1.6.2 input read skipped',e)}}
-  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),bhaRaw:clone(state.bhaRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),bha:clone(state.bha),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),ecdSettings:clone(state.ecdSettings),tdSettings:clone(state.tdSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos),schematicProfileLinePos:clone(state.schematicProfileLinePos)}}
-  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.bhaRaw=obj.bhaRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.bha=obj.bha||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.ecdSettings=obj.ecdSettings||{};state.tdSettings=obj.tdSettings||{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};state.schematicProfileLinePos=obj.schematicProfileLinePos||{};render();}
+  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),bhaRaw:clone(state.bhaRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),bha:clone(state.bha),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),ecdSettings:clone(state.ecdSettings),tdSettings:clone(state.tdSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos),schematicProfileLinePos:clone(state.schematicProfileLinePos),targets:clone(state.targets)}}
+  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.bhaRaw=obj.bhaRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.bha=obj.bha||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.ecdSettings=obj.ecdSettings||{};state.tdSettings=obj.tdSettings||{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};state.schematicProfileLinePos=obj.schematicProfileLinePos||{};state.targets=obj.targets||[];render();}
   window.drillwiseSaveWell=function(){localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));drillwiseSetSaveStatus('Saved current well in this browser.');};
   window.drillwiseLoadWell=function(){let txt=localStorage.getItem(SAVE_KEY);if(!txt){drillwiseSetSaveStatus('No saved well found in this browser.');return;}try{restore(JSON.parse(txt));drillwiseSetSaveStatus('Loaded saved well from this browser.')}catch(e){drillwiseSetSaveStatus('Could not load saved well: '+e.message)}};
   window.drillwiseDownloadWell=function(){let data=JSON.stringify(snapshot(),null,2);let name=(state.general&&state.general.caseName?String(state.general.caseName):'DrillWise_well').replace(/[^a-z0-9_-]+/gi,'_');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);drillwiseSetSaveStatus('Downloaded well JSON.');};
   window.drillwiseImportWell=function(inp){let f=inp&&inp.files&&inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{restore(JSON.parse(String(r.result||'')));drillwiseSetSaveStatus('Imported well JSON: '+f.name)}catch(e){drillwiseSetSaveStatus('Import failed: '+e.message)}};r.readAsText(f);};
-  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.bhaRaw=[];state.ppfg=[];state.wp=[];state.bha=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.ecdSettings={};state.tdSettings={dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};state.schematicProfileLinePos={};render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
+  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.bhaRaw=[];state.ppfg=[];state.wp=[];state.bha=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.ecdSettings={};state.tdSettings={dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};state.schematicProfileLinePos={};state.targets=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
   window.drillwiseAddCasingRow=function(){safeRead();state.strings.push(blankString());renderInput();};
   window.drillwiseAddSectionRow=function(){safeRead();state.sections.push(blankSection());renderInput();};
   window.drillwiseAddBhaRow=function(){state.bha.push(blankBhaRow());renderECD();};
