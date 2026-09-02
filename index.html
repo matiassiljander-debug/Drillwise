@@ -1071,17 +1071,44 @@ function deadReckonNsEw(rows){
   return rows;
 }
 function trajectoryRows(){
-  let rows=(state.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))).map(r=>({MD:n(r.MD),TVD:n(r.TVD),Inc:n(r.Inc),Azimuth:n(r.Azimuth),NS:n(r.NS),EW:n(r.EW)})).sort((a,b)=>a.MD-b.MD);
+  let rows=(state.wp||[]).filter(r=>Number.isFinite(n(r.MD))&&Number.isFinite(n(r.TVD))).map(r=>({MD:n(r.MD),TVD:n(r.TVD),Inc:n(r.Inc),Azimuth:n(r.Azimuth),NS:n(r.NS),EW:n(r.EW),DLS:n(r.DLS)})).sort((a,b)=>a.MD-b.MD);
   deadReckonNsEw(rows);
   if(rows.length){
     let last=rows[rows.length-1];
     let neededMD=Math.max(0,...state.sections.map(s=>n(s.ToMD)||0),...state.strings.map(s=>n(s.ShoeMD)||0));
     if(neededMD>last.MD+0.5&&Number.isFinite(last.Inc)&&Number.isFinite(last.Azimuth)&&Number.isFinite(last.NS)&&Number.isFinite(last.EW)){
       let p=minCurveStep(last.MD,last.Inc,last.Azimuth,last.NS,last.EW,last.TVD,neededMD,last.Inc,last.Azimuth);
-      rows.push({MD:neededMD,TVD:p.TVD,Inc:last.Inc,Azimuth:last.Azimuth,NS:p.NS,EW:p.EW});
+      rows.push({MD:neededMD,TVD:p.TVD,Inc:last.Inc,Azimuth:last.Azimuth,NS:p.NS,EW:p.EW,DLS:0});
     }
   }
   return rows;
+}
+function calcDLS(rows){
+  // Same dogleg formula as minCurveStep(), just solved for the angle itself rather than
+  // an interpolated position - deg/30m, the convention this app's own sample surveys use.
+  return rows.map((r,i)=>{
+    if(i===0)return {...r,DLS:0};
+    let a=rows[i-1],dmd=n(r.MD)-n(a.MD);
+    if(!(dmd>0)||!Number.isFinite(n(a.Inc))||!Number.isFinite(n(r.Inc))||!Number.isFinite(n(a.Azimuth))||!Number.isFinite(n(r.Azimuth)))return {...r,DLS:0};
+    let i1=n(a.Inc)*Math.PI/180,i2=n(r.Inc)*Math.PI/180,daz=shortestAngleDelta(n(a.Azimuth),n(r.Azimuth))*Math.PI/180;
+    let cosDL=Math.cos(i2-i1)-Math.sin(i1)*Math.sin(i2)*(1-Math.cos(daz));
+    cosDL=Math.max(-1,Math.min(1,cosDL));
+    let dlDeg=Math.acos(cosDL)*180/Math.PI;
+    return {...r,DLS:dlDeg/dmd*30};
+  });
+}
+function calculateWellpathDLS(){
+  if(!(state.wp&&state.wp.length>1)){drillwiseSetSaveStatus&&drillwiseSetSaveStatus('Upload and map a wellpath first.');return}
+  state.wp=calcDLS(state.wp.slice().sort((a,b)=>n(a.MD)-n(b.MD)));
+  renderWellpath();
+}
+function dlsAt(rawRows,md){
+  // Step lookup, not interpolated: DLS is a per-interval quantity defined only at real
+  // survey stations, so this reports the most recent station's DLS at or before md.
+  if(!rawRows||!rawRows.length)return NaN;
+  let best=NaN;
+  for(const r of rawRows){ if(n(r.MD)<=md+1e-6)best=n(r.DLS); else break; }
+  return best;
 }
 function toggleShoesOnTrajectory(el){state.showShoesOnTrajectory=!!el.checked;drawWellpathViews(trajectoryRows());}
 function trajectoryShoeMarkers(rows){
@@ -1187,8 +1214,8 @@ if(!window._drillwiseFsListenerAdded){
 function lookupTrajectory(){
   let rows=trajectoryRows(),basis=$('trajBasis').value,val=n($('trajDepth').value);
   if(!rows.length||!Number.isFinite(val)){$('trajResult').innerHTML='<p class="note">Upload and map a wellpath first, then enter a valid depth.</p>';return}
-  let md=basis==='MD'?val:interp(rows,'TVD','MD',val),tvd=basis==='TVD'?val:interp(rows,'MD','TVD',val),inc=interp(rows,basis,'Inc',val),azi=interp(rows,basis,'Azimuth',val),ns=interp(rows,basis,'NS',val),ew=interp(rows,basis,'EW',val),pp=interp(state.ppfg,'TVD','PP',tvd),fg=interp(state.ppfg,'TVD','FG',tvd),sh=interp(state.ppfg,'TVD','Shmin',tvd);
-  $('trajResult').innerHTML=table([{Basis:basis,Input:val,MD:md,TVD:tvd,Inclination:inc,Azimuth:azi,NS:ns,EW:ew,PP:pp,FG:fg,Shmin:sh}]);
+  let md=basis==='MD'?val:interp(rows,'TVD','MD',val),tvd=basis==='TVD'?val:interp(rows,'MD','TVD',val),inc=interp(rows,basis,'Inc',val),azi=interp(rows,basis,'Azimuth',val),ns=interp(rows,basis,'NS',val),ew=interp(rows,basis,'EW',val),pp=interp(state.ppfg,'TVD','PP',tvd),fg=interp(state.ppfg,'TVD','FG',tvd),sh=interp(state.ppfg,'TVD','Shmin',tvd),dls=dlsAt(rows,md);
+  $('trajResult').innerHTML=table([{Basis:basis,Input:val,MD:md,TVD:tvd,Inclination:inc,Azimuth:azi,DLS:dls,NS:ns,EW:ew,PP:pp,FG:fg,Shmin:sh}]);
 }
 
 
@@ -1209,7 +1236,8 @@ function loadPlotlyTrajectory(cb){
 }
 function renderWellpath(){
   let rows=trajectoryRows();
-  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  let hasDLS=rows.some(r=>Number.isFinite(r.DLS)&&r.DLS>0);
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view.</p><div class="actions"><button class="dark" onclick="calculateWellpathDLS()">Calculate DLS</button><span class="note">${hasDLS?'DLS calculated - shown in the 3D plot info, lookup, and the preview table below.':'No DLS in the uploaded survey - click to calculate it (deg/30m) from MD/Inc/Azimuth.'}</span></div><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
   renderOffsetWellsList();
   drawWellpathViews(rows);
 }
@@ -1288,14 +1316,14 @@ function initNativeTrajectory(rows){
   window._drillwiseTrajectoryReset=function(){state3d.rotZ=state3d.rotZ0;state3d.rotX=state3d.rotX0;state3d.zoom=1.0;redraw();};
   window._drillwiseTrajectoryRedraw=function(){redraw();};
   function resizeCanvas(c){let r=c.getBoundingClientRect();let d=window.devicePixelRatio||1;let w=Math.max(420,Math.floor(r.width)),h=Math.max(420,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d);let ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);}return {w,h};}
-  function stationText(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];return `MD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
+  function stationText(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let dls=dlsAt(fullRows,r.MD);return `MD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m${Number.isFinite(dls)?`\nDLS ${fmt(dls,2)}°/30m`:''}`;}
   function offsetStationText(name,r){return `${name}\nMD ${fmt(r.MD,1)} m\nTVD ${fmt(r.TVD,1)} m\nInc ${fmt(r.Inc,2)}°\nAz ${fmt(r.Azimuth,2)}°\nNS ${fmt(r.NS,1)} m\nEW ${fmt(r.EW,1)} m`;}
   function nearestOffsetPoint(pointsKey,ev,canvas,maxDist){
     let r=canvas.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,best=null,bd=maxDist;
     offsetTracks.forEach((o,oi)=>{(o[pointsKey]||[]).forEach((p,i)=>{let d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best={oi,i}}})});
     return best;
   }
-  function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°`;}
+  function updateNote(i){let r=drawRows[Math.max(0,Math.min(drawRows.length-1,i))];let note=$('trajSyncNote');let dls=dlsAt(fullRows,r.MD);if(note)note.textContent=`Selected point: MD ${fmt(r.MD,1)} m, TVD ${fmt(r.TVD,1)} m, Inc ${fmt(r.Inc,2)}°${Number.isFinite(dls)?`, DLS ${fmt(dls,2)}°/30m`:''}`;}
   function transform(pt,w,h,tvdOverride){
     let box=state3d.box||{left:0,right:w,top:0,bottom:h};
     let boxW=Math.max(60,box.right-box.left), boxH=Math.max(60,box.bottom-box.top);
