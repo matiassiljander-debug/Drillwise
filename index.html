@@ -759,7 +759,15 @@ function drawSchematicProfile(){
       let dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
       if(len>0.5)exitTangent={x:dx/len,y:dy/len};
     }
-    let bP0=shoePx,bP1={x:bP0.x+exitTangent.x*transPx*0.5,y:bP0.y+exitTangent.y*transPx*0.5},bP2={x:bP0.x+transPx*0.5,y:bP0.y},bP3={x:bP0.x+transPx,y:bP0.y};
+    // The flat run settles at whatever height this gentle bend naturally reaches (damped by
+    // the exit angle), not forced back to exactly the shoe's own height - forcing it back to
+    // the shoe's exact height made a steep exit swing down then reverse back up to get there,
+    // pinching the two wavy boundary lines unevenly against each other. Letting a steep exit
+    // settle a little deeper (never shallower) is both smoother to draw and the more sensible
+    // read: a hole still heading down hard at the shoe would plausibly level off somewhat
+    // below it, not bounce back up to the exact same depth.
+    let dropPx=Math.max(0,exitTangent.y)*transPx*0.5;
+    let bP0=shoePx,bP1={x:bP0.x+exitTangent.x*transPx*0.5,y:bP0.y+exitTangent.y*transPx*0.5},bP3={x:bP0.x+transPx,y:bP0.y+dropPx},bP2={x:bP0.x+transPx*0.6,y:bP3.y};
     let bezier=t=>{let mt=1-t;return {x:mt*mt*mt*bP0.x+3*mt*mt*t*bP1.x+3*mt*t*t*bP2.x+t*t*t*bP3.x,y:mt*mt*mt*bP0.y+3*mt*mt*t*bP1.y+3*mt*t*t*bP2.y+t*t*t*bP3.y}};
     let openCenter=[];
     for(let i=0;i<=24;i++)openCenter.push(bezier(i/24));
