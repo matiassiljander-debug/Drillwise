@@ -490,13 +490,32 @@ function profileBandPath(center,offA,offB){
   return 'M'+sideA.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' L'+sideB.slice().reverse().map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' Z';
 }
 function profileWavyPath(center,radius,sign,periodMd){
+  // Offset vertically, not perpendicular to the local tangent (only caller is the open-hole
+  // pair, which bends through the shoe-to-horizontal transition) - a perpendicular offset
+  // flips direction across an inflection in that bend, sending the two wavy lines apart
+  // toward completely different heights instead of staying a fixed distance apart. A
+  // vertical offset keeps them exactly 2*radius apart everywhere, regardless of curvature.
   let mdFrom=center[0]?center[0].md:0;
-  let pts=profileNormals(center);
-  return 'M'+pts.map(p=>{
+  return 'M'+center.map(p=>{
     let wob=Math.sin((p.md-mdFrom)/Math.max(20,periodMd)*2*Math.PI)*Math.min(6,radius*0.22);
     let off=sign*(radius+wob);
-    return `${(p.x+p.nx*off).toFixed(1)},${(p.y+p.ny*off).toFixed(1)}`;
+    return `${p.x.toFixed(1)},${(p.y+off).toFixed(1)}`;
   }).join(' L');
+}
+function profileCapPoints(p1,p2,bulge,steps=10){
+  // Rounded end-cap connecting the open hole's two wavy boundary lines at one end, via a
+  // quadratic curve bulging outward, so the hole reads as one closed, rounded shape (like a
+  // bit nose) rather than two open-ended lines.
+  let midX=(p1.x+p2.x)/2, midY=(p1.y+p2.y)/2;
+  let dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.hypot(dx,dy)||1;
+  let nx=-dy/len, ny=dx/len;
+  let ctrl={x:midX+nx*bulge, y:midY+ny*bulge};
+  let pts=[];
+  for(let i=0;i<=steps;i++){
+    let t=i/steps, mt=1-t;
+    pts.push(`${(mt*mt*p1.x+2*mt*t*ctrl.x+t*t*p2.x).toFixed(1)},${(mt*mt*p1.y+2*mt*t*ctrl.y+t*t*p2.y).toFixed(1)}`);
+  }
+  return pts;
 }
 function profileOffsetLine(center,off){
   let pts=profileNormals(center);
@@ -750,7 +769,7 @@ function drawSchematicProfile(){
     // uses for the open hole.
     let shoePx={x:X(openFromV.HD),y:Y(openFromV.TVD)};
     let flatEndX=X(openFromV.HD+openMDLen);
-    let transPx=Math.min(140,Math.max(10,flatEndX-shoePx.x));
+    let transPx=Math.min(220,Math.max(10,flatEndX-shoePx.x));
     let tailFrom=deepestStringP?Math.max(n(deepestStringP.TopMD),openFromMD-Math.min(60,openMDLen)):openFromMD;
     let tailCenter=deepestStringP?profileCenterline(rows,tailFrom,openFromMD,X,Y):[];
     let exitTangent={x:1,y:0};
@@ -775,9 +794,19 @@ function drawSchematicProfile(){
     openCenter=openCenter.map((p,i)=>({...p,md:openFromMD+(mdMax-openFromMD)*(i/(openCenter.length-1))}));
     let period=(mdMax-openFromMD)/6;
     let openLineOff=profileLineOffset('line_openhole');
+    // Exact endpoints of the two wavy lines (including their wobble, so the caps meet them
+    // with no gap) - wobble is 0 at the very start (sin(0)) by construction, so only the far
+    // end needs the wobble term computed explicitly.
+    let firstC=openCenter[0], lastC=openCenter[openCenter.length-1];
+    let lastWob=Math.sin((lastC.md-openFromMD)/Math.max(20,period)*2*Math.PI)*Math.min(6,openHalf*0.22);
+    let botStart={x:firstC.x,y:firstC.y+openHalf}, topStart={x:firstC.x,y:firstC.y-openHalf};
+    let botEnd={x:lastC.x,y:lastC.y+openHalf+lastWob}, topEnd={x:lastC.x,y:lastC.y-openHalf-lastWob};
+    let capBulge=Math.min(openHalf*0.9,26);
     svg.push(`<g class="profile-line-group" data-key="line_openhole" transform="translate(${openLineOff.dx},${openLineOff.dy})" style="cursor:move">`);
+    svg.push(`<path d="M${profileCapPoints(topStart,botStart,capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
+    svg.push(`<path d="M${profileCapPoints(topEnd,botEnd,-capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`</g>`);
     let tdPt=openCenter[openCenter.length-1];
     let holeSec=state.sections.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0];
