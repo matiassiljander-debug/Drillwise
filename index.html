@@ -788,17 +788,28 @@ function drawSchematicProfile(){
     let dropPx=Math.max(0,exitTangent.y)*transPx*0.5;
     let bP0=shoePx,bP1={x:bP0.x+exitTangent.x*transPx*0.5,y:bP0.y+exitTangent.y*transPx*0.5},bP3={x:bP0.x+transPx,y:bP0.y+dropPx},bP2={x:bP0.x+transPx*0.6,y:bP3.y};
     let bezier=t=>{let mt=1-t;return {x:mt*mt*mt*bP0.x+3*mt*mt*t*bP1.x+3*mt*t*t*bP2.x+t*t*t*bP3.x,y:mt*mt*mt*bP0.y+3*mt*mt*t*bP1.y+3*mt*t*t*bP2.y+t*t*t*bP3.y}};
-    let openCenter=[];
-    for(let i=0;i<=24;i++)openCenter.push(bezier(i/24));
-    for(let i=1;i<=40;i++)openCenter.push({x:bP3.x+(flatEndX-bP3.x)*(i/40),y:bP3.y});
-    openCenter=openCenter.map((p,i)=>({...p,md:openFromMD+(mdMax-openFromMD)*(i/(openCenter.length-1))}));
-    let period=(mdMax-openFromMD)/6;
+    let openCenterRaw=[];
+    for(let i=0;i<=24;i++)openCenterRaw.push(bezier(i/24));
+    for(let i=1;i<=40;i++)openCenterRaw.push({x:bP3.x+(flatEndX-bP3.x)*(i/40),y:bP3.y});
+    // Wobble phase (still stored on the .md field, reused below) is cumulative ON-SCREEN
+    // pixel distance travelled, not MD spread evenly by index - the 25 bend points and 40
+    // flat points cover wildly different pixel spans for the same point count (the bend is
+    // squeezed into ~220px, the flat run can be thousands of px), so spacing phase evenly by
+    // index made the wave cycle many times faster through the bend than along the flat run,
+    // visibly scrunching the pattern right where the two meet. Pixel arc-length keeps the
+    // wave's on-screen wavelength constant everywhere, bend included.
+    let openCenter=[],cumPx=0;
+    openCenterRaw.forEach((p,i)=>{
+      if(i>0){let prev=openCenterRaw[i-1];cumPx+=Math.hypot(p.x-prev.x,p.y-prev.y)}
+      openCenter.push({...p,md:cumPx});
+    });
+    let period=30;
     let openLineOff=profileLineOffset('line_openhole');
     // Exact endpoints of the two wavy lines (including their wobble, so the caps meet them
     // with no gap) - wobble is 0 at the very start (sin(0)) by construction, so only the far
     // end needs the wobble term computed explicitly.
     let firstC=openCenter[0], lastC=openCenter[openCenter.length-1];
-    let lastWob=Math.sin((lastC.md-openFromMD)/Math.max(20,period)*2*Math.PI)*Math.min(6,openHalf*0.22);
+    let lastWob=Math.sin((lastC.md-firstC.md)/Math.max(20,period)*2*Math.PI)*Math.min(6,openHalf*0.22);
     let botStart={x:firstC.x,y:firstC.y+openHalf}, topStart={x:firstC.x,y:firstC.y-openHalf};
     let botEnd={x:lastC.x,y:lastC.y+openHalf+lastWob}, topEnd={x:lastC.x,y:lastC.y-openHalf-lastWob};
     let capBulge=Math.min(openHalf*0.9,26);
