@@ -757,52 +757,39 @@ function drawSchematicProfile(){
   let labelsRight=[];
   let openHalf=deepestStringP?hp(n(deepestStringP.OD))*0.85:hp(maxOD)*0.4;
   if(mdMax>openFromMD&&openFromV){
-    // Drawn as a smooth curve out of the shoe's own exit direction into horizontal, in pixel
-    // space - not by chasing the true trajectory's TVD/HD through the transition. That true-
-    // trajectory approach kept breaking (self-crossing loops, sharp elbows, pinched hooks) on
-    // real wells because MD-to-pixel scaling near a shoe can be extremely non-linear (the
-    // minimum-gap axis compression) and TVD isn't always monotonic once inclination holds
-    // past 90deg. A cubic Bezier from the shoe, starting tangent to however the casing was
-    // actually just drawn (its own last pixel-space segment) and ending tangent to horizontal,
-    // is simple, always well-behaved, and matches the "doesn't need to be realistic, just
-    // draw it out of the shoe and then make it horizontal" convention this schematic already
-    // uses for the open hole.
+    // Drawn as a single straight run at a stylised angle bucketed from the wellbore's own
+    // local inclination at the shoe - not by chasing the true trajectory through the open-
+    // hole interval. That true-trajectory approach kept breaking (self-crossing loops, sharp
+    // elbows, pinched hooks) on real wells because MD-to-pixel scaling near a shoe can be
+    // extremely non-linear (minimum-gap axis compression) and TVD isn't always monotonic once
+    // inclination holds past 90deg. Bucketing into vertical (<30deg) / slanted (30-70deg) /
+    // horizontal (>70deg) is simple, always well-behaved, and still reads as roughly the
+    // right direction without needing to be physically exact.
     let shoePx={x:X(openFromV.HD),y:Y(openFromV.TVD)};
     let flatEndX=X(openFromV.HD+openMDLen);
-    let transPx=Math.min(220,Math.max(10,flatEndX-shoePx.x));
-    let tailFrom=deepestStringP?Math.max(n(deepestStringP.TopMD),openFromMD-Math.min(60,openMDLen)):openFromMD;
-    let tailCenter=deepestStringP?profileCenterline(rows,tailFrom,openFromMD,X,Y):[];
-    let exitTangent={x:1,y:0};
-    if(tailCenter.length>=2){
-      let a=tailCenter[tailCenter.length-2],b=tailCenter[tailCenter.length-1];
-      let dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
-      if(len>0.5)exitTangent={x:dx/len,y:dy/len};
+    let lookback=Math.min(60,openFromMD);
+    let priorV=vsAt(rows,Math.max(0,openFromMD-lookback));
+    let dHD=Math.abs(openFromV.HD-priorV.HD), dTVD=Math.max(0,openFromV.TVD-priorV.TVD);
+    let incDeg=(dHD<1e-6&&dTVD<1e-6)?0:Math.atan2(dHD,dTVD)*180/Math.PI;
+    let endPx;
+    if(incDeg<30){
+      endPx={x:shoePx.x,y:Y(tdTVD)};
+    }else if(incDeg>70){
+      endPx={x:flatEndX,y:shoePx.y};
+    }else{
+      let incRad=incDeg*Math.PI/180;
+      endPx={x:X(openFromV.HD+openMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+openMDLen*Math.cos(incRad))};
     }
-    // The flat run settles at whatever height this gentle bend naturally reaches (damped by
-    // the exit angle), not forced back to exactly the shoe's own height - forcing it back to
-    // the shoe's exact height made a steep exit swing down then reverse back up to get there,
-    // pinching the two wavy boundary lines unevenly against each other. Letting a steep exit
-    // settle a little deeper (never shallower) is both smoother to draw and the more sensible
-    // read: a hole still heading down hard at the shoe would plausibly level off somewhat
-    // below it, not bounce back up to the exact same depth.
-    let dropPx=Math.max(0,exitTangent.y)*transPx*0.5;
-    let bP0=shoePx,bP1={x:bP0.x+exitTangent.x*transPx*0.5,y:bP0.y+exitTangent.y*transPx*0.5},bP3={x:bP0.x+transPx,y:bP0.y+dropPx},bP2={x:bP0.x+transPx*0.6,y:bP3.y};
-    let bezier=t=>{let mt=1-t;return {x:mt*mt*mt*bP0.x+3*mt*mt*t*bP1.x+3*mt*t*t*bP2.x+t*t*t*bP3.x,y:mt*mt*mt*bP0.y+3*mt*mt*t*bP1.y+3*mt*t*t*bP2.y+t*t*t*bP3.y}};
-    let openCenterRaw=[];
-    for(let i=0;i<=24;i++)openCenterRaw.push(bezier(i/24));
-    for(let i=1;i<=40;i++)openCenterRaw.push({x:bP3.x+(flatEndX-bP3.x)*(i/40),y:bP3.y});
-    // Wobble phase (still stored on the .md field, reused below) is cumulative ON-SCREEN
-    // pixel distance travelled, not MD spread evenly by index - the 25 bend points and 40
-    // flat points cover wildly different pixel spans for the same point count (the bend is
-    // squeezed into ~220px, the flat run can be thousands of px), so spacing phase evenly by
-    // index made the wave cycle many times faster through the bend than along the flat run,
-    // visibly scrunching the pattern right where the two meet. Pixel arc-length keeps the
-    // wave's on-screen wavelength constant everywhere, bend included.
+    // Wobble phase (stored on the .md field, reused below) is cumulative ON-SCREEN pixel
+    // distance travelled along the straight run, keeping the wave's on-screen wavelength
+    // constant regardless of how steep or long the run is.
     let openCenter=[],cumPx=0;
-    openCenterRaw.forEach((p,i)=>{
-      if(i>0){let prev=openCenterRaw[i-1];cumPx+=Math.hypot(p.x-prev.x,p.y-prev.y)}
+    for(let i=0;i<=40;i++){
+      let t=i/40;
+      let p={x:shoePx.x+(endPx.x-shoePx.x)*t,y:shoePx.y+(endPx.y-shoePx.y)*t};
+      if(i>0){let prev=openCenter[i-1];cumPx+=Math.hypot(p.x-prev.x,p.y-prev.y)}
       openCenter.push({...p,md:cumPx});
-    });
+    }
     let period=30;
     let openLineOff=profileLineOffset('line_openhole');
     // Exact endpoints of the two wavy lines (including their wobble, so the caps meet them
