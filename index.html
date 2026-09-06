@@ -772,24 +772,44 @@ function drawSchematicProfile(){
     let endV=vsAt(rows,mdMax);
     let dHD=Math.abs(endV.HD-openFromV.HD), dTVD=Math.max(0,endV.TVD-openFromV.TVD);
     let incDeg=(dHD<1e-6&&dTVD<1e-6)?0:Math.atan2(dHD,dTVD)*180/Math.PI;
-    let endPx;
+    // The horizontal bucket's own start-of-section inclination (right at the shoe) is
+    // checked separately: a well that nets out horizontal over the whole open-hole
+    // interval usually still leaves the shoe at a real build angle rather than already
+    // flat, so that case is drawn as a short slanted lead-in out of the shoe that levels
+    // off into the horizontal run, instead of jumping straight to flat right at the shoe.
+    let waypoints;
     if(incDeg<30){
-      endPx={x:shoePx.x,y:Y(tdTVD)};
+      waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)}];
     }else if(incDeg>70){
-      endPx={x:flatEndX,y:shoePx.y};
+      let lookback=Math.min(60,openFromMD);
+      let priorV=vsAt(rows,Math.max(0,openFromMD-lookback));
+      let sHD=Math.abs(openFromV.HD-priorV.HD), sTVD=Math.max(0,openFromV.TVD-priorV.TVD);
+      let startIncDeg=(sHD<1e-6&&sTVD<1e-6)?0:Math.atan2(sHD,sTVD)*180/Math.PI;
+      if(startIncDeg>70){
+        waypoints=[shoePx,{x:flatEndX,y:shoePx.y}];
+      }else{
+        let startRad=startIncDeg*Math.PI/180;
+        let buildMD=openMDLen*0.35, remMD=openMDLen-buildMD;
+        let midHD=openFromV.HD+buildMD*Math.sin(startRad), midTVD=openFromV.TVD+buildMD*Math.cos(startRad);
+        let midPx={x:X(midHD),y:Y(midTVD)};
+        waypoints=[shoePx,midPx,{x:X(midHD+remMD),y:midPx.y}];
+      }
     }else{
       let incRad=incDeg*Math.PI/180;
-      endPx={x:X(openFromV.HD+openMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+openMDLen*Math.cos(incRad))};
+      waypoints=[shoePx,{x:X(openFromV.HD+openMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+openMDLen*Math.cos(incRad))}];
     }
     // Wobble phase (stored on the .md field, reused below) is cumulative ON-SCREEN pixel
-    // distance travelled along the straight run, keeping the wave's on-screen wavelength
-    // constant regardless of how steep or long the run is.
+    // distance travelled along the straight run(s), keeping the wave's on-screen wavelength
+    // constant regardless of how steep, long, or multi-part the run is.
     let openCenter=[],cumPx=0;
-    for(let i=0;i<=40;i++){
-      let t=i/40;
-      let p={x:shoePx.x+(endPx.x-shoePx.x)*t,y:shoePx.y+(endPx.y-shoePx.y)*t};
-      if(i>0){let prev=openCenter[i-1];cumPx+=Math.hypot(p.x-prev.x,p.y-prev.y)}
-      openCenter.push({...p,md:cumPx});
+    for(let s=0;s<waypoints.length-1;s++){
+      let a=waypoints[s], b=waypoints[s+1], steps=40;
+      for(let i=(s===0?0:1);i<=steps;i++){
+        let t=i/steps;
+        let p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};
+        if(openCenter.length>0){let prev=openCenter[openCenter.length-1];cumPx+=Math.hypot(p.x-prev.x,p.y-prev.y)}
+        openCenter.push({...p,md:cumPx});
+      }
     }
     let period=30;
     let openLineOff=profileLineOffset('line_openhole');
