@@ -788,11 +788,16 @@ function drawSchematicProfile(){
       if(startIncDeg>70){
         waypoints=[shoePx,{x:flatEndX,y:shoePx.y}];
       }else{
+        // Solved from the real TVD budget (shoe to TD), not a fixed fraction of the open
+        // hole's MD projected via sin/cos - the latter can overshoot tdTVD when the shoe's
+        // local angle is shallow but TD is only a modest TVD gain away, which used to send
+        // the lead-in past the bottom of the axis (clamped by Y()) and leave the "flat"
+        // continuation starting from that clamped, discontinuous point.
         let startRad=startIncDeg*Math.PI/180;
-        let buildMD=openMDLen*0.35, remMD=openMDLen-buildMD;
-        let midHD=openFromV.HD+buildMD*Math.sin(startRad), midTVD=openFromV.TVD+buildMD*Math.cos(startRad);
-        let midPx={x:X(midHD),y:Y(midTVD)};
-        waypoints=[shoePx,midPx,{x:X(midHD+remMD),y:midPx.y}];
+        let vertBudget=Math.max(0,tdTVD-openFromV.TVD);
+        let buildHD=Math.min(openMDLen,vertBudget*Math.tan(startRad));
+        let midPx={x:X(openFromV.HD+buildHD),y:Y(tdTVD)};
+        waypoints=[shoePx,midPx,{x:flatEndX,y:midPx.y}];
       }
     }else{
       let incRad=incDeg*Math.PI/180;
