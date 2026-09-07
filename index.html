@@ -777,33 +777,15 @@ function drawSchematicProfile(){
     let endV=vsAt(rows,mdMax);
     let dHD=Math.abs(endV.HD-openFromV.HD), dTVD=Math.max(0,endV.TVD-openFromV.TVD);
     let incDeg=(dHD<1e-6&&dTVD<1e-6)?0:Math.atan2(dHD,dTVD)*180/Math.PI;
-    // The horizontal bucket's own start-of-section inclination (right at the shoe) is
-    // checked separately: a well that nets out horizontal over the whole open-hole
-    // interval usually still leaves the shoe at a real build angle rather than already
-    // flat, so that case is drawn as a short slanted lead-in out of the shoe that levels
-    // off into the horizontal run, instead of jumping straight to flat right at the shoe.
+    // The horizontal bucket is drawn as a plain vertical drop out of the shoe down to TD
+    // depth, then a level run across to TD - not a lead-in slanted at the shoe's own local
+    // angle. A slanted lead-in read as more precise than this stylised schematic actually
+    // is; straight down then flat is the plainer, standard-schematic convention.
     let waypoints;
     if(incDeg<30){
       waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)}];
     }else if(incDeg>70){
-      let lookback=Math.min(60,openFromMD);
-      let priorV=vsAt(rows,Math.max(0,openFromMD-lookback));
-      let sHD=Math.abs(openFromV.HD-priorV.HD), sTVD=Math.max(0,openFromV.TVD-priorV.TVD);
-      let startIncDeg=(sHD<1e-6&&sTVD<1e-6)?0:Math.atan2(sHD,sTVD)*180/Math.PI;
-      if(startIncDeg>70){
-        waypoints=[shoePx,{x:flatEndX,y:shoePx.y}];
-      }else{
-        // Solved from the real TVD budget (shoe to TD), not a fixed fraction of the open
-        // hole's MD projected via sin/cos - the latter can overshoot tdTVD when the shoe's
-        // local angle is shallow but TD is only a modest TVD gain away, which used to send
-        // the lead-in past the bottom of the axis (clamped by Y()) and leave the "flat"
-        // continuation starting from that clamped, discontinuous point.
-        let startRad=startIncDeg*Math.PI/180;
-        let vertBudget=Math.max(0,tdTVD-openFromV.TVD);
-        let buildHD=Math.min(openMDLen,vertBudget*Math.tan(startRad));
-        let midPx={x:X(openFromV.HD+buildHD),y:Y(tdTVD)};
-        waypoints=[shoePx,midPx,{x:flatEndX,y:midPx.y}];
-      }
+      waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)},{x:flatEndX,y:Y(tdTVD)}];
     }else{
       let incRad=incDeg*Math.PI/180;
       waypoints=[shoePx,{x:X(openFromV.HD+openMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+openMDLen*Math.cos(incRad))}];
