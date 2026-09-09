@@ -489,22 +489,21 @@ function profileBandPath(center,offA,offB){
   let sideB=pts.map(p=>({x:p.x+p.nx*offB,y:p.y+p.ny*offB}));
   return 'M'+sideA.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' L'+sideB.slice().reverse().map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' Z';
 }
-function profileWavyPath(center,radius,sign,periodMd,startNormal){
-  // Offset vertically, not perpendicular to the local tangent (only caller is the open-hole
-  // pair, which bends through the shoe-to-horizontal transition) - a perpendicular offset
-  // flips direction across an inflection in that bend, sending the two wavy lines apart
-  // toward completely different heights instead of staying a fixed distance apart. A
-  // vertical offset keeps them exactly 2*radius apart everywhere, regardless of curvature.
-  // The very first point is the one exception: it's offset along the shoe's own perpendicular
-  // (startNormal) instead, so it lands exactly on the casing wall it continues from rather
-  // than at a vertically-offset point that visibly detaches from an angled shoe. That's a
-  // single, known-safe point (not a curve/inflection), so it can't reintroduce the flip bug.
+function profileWavyPath(center,radius,sign,periodMd){
+  // Offset along each point's own PER-SEGMENT perpendicular normal (nx,ny, constant within
+  // that straight segment), not a single global convention. Earlier this used a perpendicular
+  // offset from a continuously-curving centerline, which flips direction across an inflection
+  // and sends the two wavy lines toward completely different heights - but every open-hole
+  // centerline here is piecewise-STRAIGHT (built from a handful of waypoints), so each
+  // segment's normal is constant throughout it and can never flip mid-segment. This also
+  // means the line lands exactly on the shoe's own casing wall (whose normal it reuses for
+  // the first segment) instead of a vertically-offset point that visibly detaches from it.
   let mdFrom=center[0]?center[0].md:0;
-  return 'M'+center.map((p,i)=>{
-    if(i===0&&startNormal)return `${(p.x+startNormal.nx*sign*radius).toFixed(1)},${(p.y+startNormal.ny*sign*radius).toFixed(1)}`;
+  return 'M'+center.map(p=>{
     let wob=Math.sin((p.md-mdFrom)/Math.max(20,periodMd)*2*Math.PI)*Math.min(6,radius*0.22);
     let off=sign*(radius+wob);
-    return `${p.x.toFixed(1)},${(p.y+off).toFixed(1)}`;
+    let nx=p.nx!==undefined?p.nx:0, ny=p.ny!==undefined?p.ny:1;
+    return `${(p.x+nx*off).toFixed(1)},${(p.y+ny*off).toFixed(1)}`;
   }).join(' L');
 }
 function profileCapPoints(p1,p2,bulge,steps=10){
@@ -792,15 +791,26 @@ function drawSchematicProfile(){
     }
     // Wobble phase (stored on the .md field, reused below) is cumulative ON-SCREEN pixel
     // distance travelled along the straight run(s), keeping the wave's on-screen wavelength
-    // constant regardless of how steep, long, or multi-part the run is.
+    // constant regardless of how steep, long, or multi-part the run is. Each point also
+    // carries the PERPENDICULAR normal of its own segment (constant within that segment,
+    // since it's a straight line - never a curve, so this can never flip/diverge the way a
+    // continuously-varying-tangent perpendicular offset did). The first segment reuses the
+    // shoe's own true normal (the same one that draws its casing wall) instead of computing
+    // one from the segment's own stylised direction, so the two wavy lines start exactly
+    // on the pipe wall; every other segment uses its own straight-line normal.
+    let deepCenter=deepestStringP?profileCenterline(rows,n(deepestStringP.TopMD),openFromMD,X,Y):[];
+    let shoeNormP=deepCenter.length>1?profileNormals(deepCenter)[deepCenter.length-1]:null;
     let openCenter=[],cumPx=0;
     for(let s=0;s<waypoints.length-1;s++){
       let a=waypoints[s], b=waypoints[s+1], steps=40;
+      let segLen=Math.hypot(b.x-a.x,b.y-a.y)||1;
+      let nx=(s===0&&shoeNormP)?shoeNormP.nx:-(b.y-a.y)/segLen;
+      let ny=(s===0&&shoeNormP)?shoeNormP.ny:(b.x-a.x)/segLen;
       for(let i=(s===0?0:1);i<=steps;i++){
         let t=i/steps;
         let p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};
         if(openCenter.length>0){let prev=openCenter[openCenter.length-1];cumPx+=Math.hypot(p.x-prev.x,p.y-prev.y)}
-        openCenter.push({...p,md:cumPx});
+        openCenter.push({...p,md:cumPx,nx,ny});
       }
     }
     let period=30;
@@ -810,20 +820,15 @@ function drawSchematicProfile(){
     // end needs the wobble term computed explicitly.
     let firstC=openCenter[0], lastC=openCenter[openCenter.length-1];
     let lastWob=Math.sin((lastC.md-firstC.md)/Math.max(20,period)*2*Math.PI)*Math.min(6,openHalf*0.22);
-    // The start cap sits ON the shoe's own pipe wall, not offset vertically - the casing
-    // wall's width is measured perpendicular to the wellbore, and on an angled well that
-    // perpendicular direction differs visibly from straight up/down, so a vertical offset
-    // here left the open hole looking detached from the shoe it's supposed to continue.
-    let deepCenter=deepestStringP?profileCenterline(rows,n(deepestStringP.TopMD),openFromMD,X,Y):[];
-    let shoeNormP=deepCenter.length>1?profileNormals(deepCenter)[deepCenter.length-1]:null;
-    let botStart=shoeNormP?{x:firstC.x+shoeNormP.nx*openHalf,y:firstC.y+shoeNormP.ny*openHalf}:{x:firstC.x,y:firstC.y+openHalf};
-    let topStart=shoeNormP?{x:firstC.x-shoeNormP.nx*openHalf,y:firstC.y-shoeNormP.ny*openHalf}:{x:firstC.x,y:firstC.y-openHalf};
-    let botEnd={x:lastC.x,y:lastC.y+openHalf+lastWob}, topEnd={x:lastC.x,y:lastC.y-openHalf-lastWob};
+    let botStart={x:firstC.x+firstC.nx*openHalf,y:firstC.y+firstC.ny*openHalf};
+    let topStart={x:firstC.x-firstC.nx*openHalf,y:firstC.y-firstC.ny*openHalf};
+    let botEnd={x:lastC.x+lastC.nx*(openHalf+lastWob),y:lastC.y+lastC.ny*(openHalf+lastWob)};
+    let topEnd={x:lastC.x-lastC.nx*(openHalf+lastWob),y:lastC.y-lastC.ny*(openHalf+lastWob)};
     let capBulge=Math.min(openHalf*0.9,26);
     svg.push(`<g class="profile-line-group" data-key="line_openhole" transform="translate(${openLineOff.dx},${openLineOff.dy})" style="cursor:move">`);
     svg.push(`<path d="M${profileCapPoints(topStart,botStart,capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
-    svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period,shoeNormP)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
-    svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period,shoeNormP)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
+    svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
+    svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="M${profileCapPoints(topEnd,botEnd,-capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`</g>`);
     let tdPt=openCenter[openCenter.length-1];
