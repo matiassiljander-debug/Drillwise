@@ -776,15 +776,24 @@ function drawSchematicProfile(){
     let endV=vsAt(rows,mdMax);
     let dHD=Math.abs(endV.HD-openFromV.HD), dTVD=Math.max(0,endV.TVD-openFromV.TVD);
     let incDeg=(dHD<1e-6&&dTVD<1e-6)?0:Math.atan2(dHD,dTVD)*180/Math.PI;
-    // The horizontal bucket is drawn as a plain vertical drop out of the shoe down to TD
-    // depth, then a level run across to TD - not a lead-in slanted at the shoe's own local
-    // angle. A slanted lead-in read as more precise than this stylised schematic actually
-    // is; straight down then flat is the plainer, standard-schematic convention.
+    // The horizontal bucket is drawn as a short lead-in out of the shoe at the shoe's own
+    // real local angle, then a level run across to TD - a brief angled dip reads better than
+    // either a plain vertical drop (looks like it ignores the shoe's own angle) or a lead-in
+    // that runs all the way down to TD depth (looks too long/precise for a stylised hole).
     let waypoints;
     if(incDeg<30){
       waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)}];
     }else if(incDeg>70){
-      waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)},{x:flatEndX,y:Y(tdTVD)}];
+      let lookback=Math.min(60,openFromMD);
+      let priorV=vsAt(rows,Math.max(0,openFromMD-lookback));
+      let sHD=Math.abs(openFromV.HD-priorV.HD), sTVD=Math.max(0,openFromV.TVD-priorV.TVD);
+      let startIncDeg=(sHD<1e-6&&sTVD<1e-6)?0:Math.atan2(sHD,sTVD)*180/Math.PI;
+      let startRad=startIncDeg*Math.PI/180;
+      let vertBudget=Math.max(0,tdTVD-openFromV.TVD);
+      let leadTVD=vertBudget*0.3;
+      let leadHD=leadTVD*Math.tan(startRad);
+      let midPx={x:X(openFromV.HD+leadHD),y:Y(openFromV.TVD+leadTVD)};
+      waypoints=[shoePx,midPx,{x:flatEndX,y:midPx.y}];
     }else{
       let incRad=incDeg*Math.PI/180;
       waypoints=[shoePx,{x:X(openFromV.HD+openMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+openMDLen*Math.cos(incRad))}];
