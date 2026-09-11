@@ -416,7 +416,7 @@ function drawSchematic(){
    straight-vertical style of the main Well Schematic page. Pipe/hole widths are stylised
    (constant pixel offset), but the path shape and MD/TVD depths are proportional. */
 function renderSchematicProfile(){
-  $('page-schematicProfile').innerHTML=`<div class="card" id="schematicProfileCard"><h3>Well schematic (profile)</h3><p class="note">Draws the wellbore in its actual curved shape from the uploaded wellpath survey, with casing, cement and open hole following the path. Depths and shape are proportional; pipe widths are stylised. Text labels and casing/open-hole lines can both be dragged if they don't fit well. Independent of the main Well Schematic page.</p><div class="actions"><button class="dark" style="font-size:11px;padding:5px 9px" onclick="drawSchematicProfile()">Refresh schematic</button><button style="font-size:11px;padding:5px 9px" onclick="resetSchematicProfileLabels()">Reset label positions</button><button style="font-size:11px;padding:5px 9px" onclick="resetSchematicProfileLines()">Reset line positions</button><button style="font-size:11px;padding:5px 9px" onclick="toggleSchematicProfileFullscreen()">Fullscreen</button></div><div class="actions" style="margin-top:6px"><span class="note" style="font-size:11px;margin-right:6px;align-self:center">Open hole shape:</span>${['auto','vertical','slanted','horizontal'].map(t=>`<button style="font-size:11px;padding:5px 9px${(state.openHoleShapeType||'auto')===t?';background:#06263a;color:#fff':''}" onclick="setOpenHoleShapeType('${t}')">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div><div id="schematicProfilePlot" class="plot" style="min-height:0"></div></div>`;
+  $('page-schematicProfile').innerHTML=`<div class="card" id="schematicProfileCard"><h3>Well schematic (profile)</h3><p class="note">Draws the wellbore in its actual curved shape from the uploaded wellpath survey, with casing, cement and open hole following the path. Depths and shape are proportional; pipe widths are stylised. Text labels and casing/open-hole lines can both be dragged if they don't fit well. Independent of the main Well Schematic page.</p><div class="actions"><button class="dark" style="font-size:11px;padding:5px 9px" onclick="drawSchematicProfile()">Refresh schematic</button><button style="font-size:11px;padding:5px 9px" onclick="resetSchematicProfileLabels()">Reset label positions</button><button style="font-size:11px;padding:5px 9px" onclick="resetSchematicProfileLines()">Reset line positions</button><button style="font-size:11px;padding:5px 9px" onclick="toggleSchematicProfileFullscreen()">Fullscreen</button></div><div class="actions" style="margin-top:6px"><span class="note" style="font-size:11px;margin-right:6px;align-self:center">Open hole shape:</span>${[['auto','Auto'],['vertical','Vertical'],['slanted','Slanted'],['horizontal','Horizontal'],['horizontal-long','Horizontal (long)']].map(([t,label])=>`<button style="font-size:11px;padding:5px 9px${(state.openHoleShapeType||'auto')===t?';background:#06263a;color:#fff':''}" onclick="setOpenHoleShapeType('${t}')">${label}</button>`).join('')}</div><div id="schematicProfilePlot" class="plot" style="min-height:0"></div></div>`;
   drawSchematicProfile();
 }
 function toggleSchematicProfileFullscreen(){
@@ -642,7 +642,8 @@ function drawSchematicProfile(){
   let openFromMD=deepestStringP?n(deepestStringP.ShoeMD):0;
   let openFromV=vsAt(rows,openFromMD);
   let openMDLen=Math.max(0,mdMax-openFromMD);
-  let hdMax=Math.max(rawHdMax,(openFromV?openFromV.HD:rawHdMax)+openMDLen);
+  let openLenMult=state.openHoleShapeType==='horizontal-long'?2.5:1;
+  let hdMax=Math.max(rawHdMax,(openFromV?openFromV.HD:rawHdMax)+openMDLen*openLenMult);
   let X=hd=>L+(Number(hd)||0)/hdMax*plotW;
   // Not-to-scale: any two key depths (a shoe, a liner top, the conductor's own span)
   // can end up very close together - e.g. a liner hanging just below the previous
@@ -777,7 +778,8 @@ function drawSchematicProfile(){
     // hold section that builds angle and lands near-horizontal by TD reads as horizontal,
     // even though the inclination right at the shoe itself is still low).
     let shoePx={x:X(openFromV.HD),y:Y(openFromV.TVD)};
-    let flatEndX=X(openFromV.HD+openMDLen);
+    let effMDLen=openMDLen*openLenMult;
+    let flatEndX=X(openFromV.HD+effMDLen);
     let endV=vsAt(rows,mdMax);
     let dHD=Math.abs(endV.HD-openFromV.HD), dTVD=Math.max(0,endV.TVD-openFromV.TVD);
     let autoIncDeg=(dHD<1e-6&&dTVD<1e-6)?0:Math.atan2(dHD,dTVD)*180/Math.PI;
@@ -785,27 +787,22 @@ function drawSchematicProfile(){
     // (autoIncDeg) same as always, but a manually-picked shape (state.openHoleShapeType, set
     // via the buttons above) always wins and never changes on its own - a fixed 45deg stand-in
     // angle for "slanted" rather than autoIncDeg, since the whole point of picking a shape by
-    // hand is to stop the survey's own angle from driving a mismatched result.
+    // hand is to stop the survey's own angle from driving a mismatched result. Horizontal is a
+    // single straight run, not a short angled lead-in into a flat run - that two-segment shape
+    // needed a normal-direction change at the joint (each segment's normal has to be constant
+    // for the wavy pair to stay well-behaved), which showed up as a visible kink/squiggle right
+    // at that joint. A single segment has nothing to joint, so nothing to kink.
     let manualType=state.openHoleShapeType;
-    let bucket=manualType||(autoIncDeg<30?'vertical':autoIncDeg>70?'horizontal':'slanted');
+    let bucket=(manualType==='horizontal-long'?'horizontal':manualType)||(autoIncDeg<30?'vertical':autoIncDeg>70?'horizontal':'slanted');
     let incDeg=manualType==='slanted'?45:autoIncDeg;
     let waypoints;
     if(bucket==='vertical'){
       waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)}];
     }else if(bucket==='horizontal'){
-      let lookback=Math.min(60,openFromMD);
-      let priorV=vsAt(rows,Math.max(0,openFromMD-lookback));
-      let sHD=Math.abs(openFromV.HD-priorV.HD), sTVD=Math.max(0,openFromV.TVD-priorV.TVD);
-      let startIncDeg=(sHD<1e-6&&sTVD<1e-6)?0:Math.atan2(sHD,sTVD)*180/Math.PI;
-      let startRad=startIncDeg*Math.PI/180;
-      let vertBudget=Math.max(0,tdTVD-openFromV.TVD);
-      let leadTVD=vertBudget*0.3;
-      let leadHD=leadTVD*Math.tan(startRad);
-      let midPx={x:X(openFromV.HD+leadHD),y:Y(openFromV.TVD+leadTVD)};
-      waypoints=[shoePx,midPx,{x:flatEndX,y:midPx.y}];
+      waypoints=[shoePx,{x:flatEndX,y:shoePx.y}];
     }else{
       let incRad=incDeg*Math.PI/180;
-      waypoints=[shoePx,{x:X(openFromV.HD+openMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+openMDLen*Math.cos(incRad))}];
+      waypoints=[shoePx,{x:X(openFromV.HD+effMDLen*Math.sin(incRad)),y:Y(openFromV.TVD+effMDLen*Math.cos(incRad))}];
     }
     // Wobble phase (stored on the .md field, reused below) is cumulative ON-SCREEN pixel
     // distance travelled along the straight run(s), keeping the wave's on-screen wavelength
@@ -833,18 +830,15 @@ function drawSchematicProfile(){
     }
     let period=30;
     let openLineOff=profileLineOffset('line_openhole');
-    // Exact endpoints of the two wavy lines (including their wobble, so the caps meet them
-    // with no gap) - wobble is 0 at the very start (sin(0)) by construction, so only the far
-    // end needs the wobble term computed explicitly.
+    // Exact endpoints of the far wavy pair (including their wobble, so the end cap meets them
+    // with no gap) - the start stays open (no cap), since the open hole continues directly out
+    // of the shoe rather than being a standalone closed shape.
     let firstC=openCenter[0], lastC=openCenter[openCenter.length-1];
     let lastWob=Math.sin((lastC.md-firstC.md)/Math.max(20,period)*2*Math.PI)*Math.min(6,openHalf*0.22);
-    let botStart={x:firstC.x+firstC.nx*openHalf,y:firstC.y+firstC.ny*openHalf};
-    let topStart={x:firstC.x-firstC.nx*openHalf,y:firstC.y-firstC.ny*openHalf};
     let botEnd={x:lastC.x+lastC.nx*(openHalf+lastWob),y:lastC.y+lastC.ny*(openHalf+lastWob)};
     let topEnd={x:lastC.x-lastC.nx*(openHalf+lastWob),y:lastC.y-lastC.ny*(openHalf+lastWob)};
     let capBulge=Math.min(openHalf*0.9,26);
     svg.push(`<g class="profile-line-group" data-key="line_openhole" transform="translate(${openLineOff.dx},${openLineOff.dy})" style="cursor:move">`);
-    svg.push(`<path d="M${profileCapPoints(topStart,botStart,capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
     svg.push(`<path d="M${profileCapPoints(topEnd,botEnd,-capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
