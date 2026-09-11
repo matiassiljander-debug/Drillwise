@@ -763,7 +763,10 @@ function drawSchematicProfile(){
   // Open hole below the deepest shoe, to TD - drawn horizontal (standard well-schematic
   // convention for the reservoir/production interval) regardless of true inclination.
   let labelsRight=[];
-  let openHalf=deepestStringP?hp(n(deepestStringP.OD))*0.85:hp(maxOD)*0.4;
+  // Open hole width matches the previous casing's own INNER diameter (the bore it continues
+  // out of), not a rough fraction of its OD - falls back to the old OD-based estimate only if
+  // that string has no ID entered.
+  let openHalf=deepestStringP&&n(deepestStringP.ID)>0?hp(n(deepestStringP.ID)):deepestStringP?hp(n(deepestStringP.OD))*0.85:hp(maxOD)*0.4;
   if(mdMax>openFromMD&&openFromV){
     // Drawn as a single straight run at a stylised angle bucketed from the survey's net
     // inclination over the whole open-hole interval (shoe to TD) - not by chasing the true
