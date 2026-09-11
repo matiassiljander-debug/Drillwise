@@ -489,38 +489,6 @@ function profileBandPath(center,offA,offB){
   let sideB=pts.map(p=>({x:p.x+p.nx*offB,y:p.y+p.ny*offB}));
   return 'M'+sideA.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' L'+sideB.slice().reverse().map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' Z';
 }
-function profileWavyPath(center,radius,sign,periodMd){
-  // Offset along each point's own PER-SEGMENT perpendicular normal (nx,ny, constant within
-  // that straight segment), not a single global convention. Earlier this used a perpendicular
-  // offset from a continuously-curving centerline, which flips direction across an inflection
-  // and sends the two wavy lines toward completely different heights - but every open-hole
-  // centerline here is piecewise-STRAIGHT (built from a handful of waypoints), so each
-  // segment's normal is constant throughout it and can never flip mid-segment. This also
-  // means the line lands exactly on the shoe's own casing wall (whose normal it reuses for
-  // the first segment) instead of a vertically-offset point that visibly detaches from it.
-  let mdFrom=center[0]?center[0].md:0;
-  return 'M'+center.map(p=>{
-    let wob=Math.sin((p.md-mdFrom)/Math.max(20,periodMd)*2*Math.PI)*Math.min(6,radius*0.22);
-    let off=sign*(radius+wob);
-    let nx=p.nx!==undefined?p.nx:0, ny=p.ny!==undefined?p.ny:1;
-    return `${(p.x+nx*off).toFixed(1)},${(p.y+ny*off).toFixed(1)}`;
-  }).join(' L');
-}
-function profileCapPoints(p1,p2,bulge,steps=10){
-  // Rounded end-cap connecting the open hole's two wavy boundary lines at one end, via a
-  // quadratic curve bulging outward, so the hole reads as one closed, rounded shape (like a
-  // bit nose) rather than two open-ended lines.
-  let midX=(p1.x+p2.x)/2, midY=(p1.y+p2.y)/2;
-  let dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.hypot(dx,dy)||1;
-  let nx=-dy/len, ny=dx/len;
-  let ctrl={x:midX+nx*bulge, y:midY+ny*bulge};
-  let pts=[];
-  for(let i=0;i<=steps;i++){
-    let t=i/steps, mt=1-t;
-    pts.push(`${(mt*mt*p1.x+2*mt*t*ctrl.x+t*t*p2.x).toFixed(1)},${(mt*mt*p1.y+2*mt*t*ctrl.y+t*t*p2.y).toFixed(1)}`);
-  }
-  return pts;
-}
 function profileOffsetLine(center,off){
   let pts=profileNormals(center);
   return 'M'+pts.map(p=>`${(p.x+p.nx*off).toFixed(1)},${(p.y+p.ny*off).toFixed(1)}`).join(' L');
@@ -828,20 +796,17 @@ function drawSchematicProfile(){
         openCenter.push({...p,md:cumPx,nx,ny});
       }
     }
-    let period=30;
     let openLineOff=profileLineOffset('line_openhole');
-    // Exact endpoints of the far wavy pair (including their wobble, so the end cap meets them
-    // with no gap) - the start stays open (no cap), since the open hole continues directly out
-    // of the shoe rather than being a standalone closed shape.
-    let firstC=openCenter[0], lastC=openCenter[openCenter.length-1];
-    let lastWob=Math.sin((lastC.md-firstC.md)/Math.max(20,period)*2*Math.PI)*Math.min(6,openHalf*0.22);
-    let botEnd={x:lastC.x+lastC.nx*(openHalf+lastWob),y:lastC.y+lastC.ny*(openHalf+lastWob)};
-    let topEnd={x:lastC.x-lastC.nx*(openHalf+lastWob),y:lastC.y-lastC.ny*(openHalf+lastWob)};
-    let capBulge=Math.min(openHalf*0.9,26);
+    // Drawn as a solid hatched band (same hatch used for cement) rather than a thin wavy
+    // outline - matches the standard well-schematic convention for an open/uncased hole,
+    // and reads far more clearly than a pair of squiggly lines at this width. Uses each
+    // point's own stored normal (nx,ny) rather than re-deriving one from neighbouring
+    // points, so the band's start edge lands exactly on the shoe's own wall.
+    let sideA=openCenter.map(p=>({x:p.x+p.nx*openHalf,y:p.y+p.ny*openHalf}));
+    let sideB=openCenter.map(p=>({x:p.x-p.nx*openHalf,y:p.y-p.ny*openHalf}));
+    let bandPath='M'+sideA.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' L'+sideB.slice().reverse().map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' Z';
     svg.push(`<g class="profile-line-group" data-key="line_openhole" transform="translate(${openLineOff.dx},${openLineOff.dy})" style="cursor:move">`);
-    svg.push(`<path d="${profileWavyPath(openCenter,openHalf,1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
-    svg.push(`<path d="${profileWavyPath(openCenter,openHalf,-1,period)}" fill="none" stroke="#777" stroke-width="2.2"/>`);
-    svg.push(`<path d="M${profileCapPoints(topEnd,botEnd,-capBulge).join(' L')}" fill="none" stroke="#777" stroke-width="2.2"/>`);
+    svg.push(`<path d="${bandPath}" fill="url(#cementHatch)" stroke="#6f6f6f" stroke-width="1.5"/>`);
     svg.push(`</g>`);
     let tdPt=openCenter[openCenter.length-1];
     let holeSec=state.sections.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0];
