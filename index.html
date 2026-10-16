@@ -1,5 +1,5 @@
 <!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DrillWise Well Planner</title><style>
-:root{--blue:#003b5c;--cyan:#00a3c7;--bg:#f4f8fb;--line:#cfe4ec;--ink:#102a3a;--muted:#607987;--bad:#b91c1c;--ok:#107c41}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}.side{background:linear-gradient(180deg,#003b5c,#00516f);color:white;padding:20px}.side h1{font-size:18px;margin:0 0 4px}.side p{margin:0 0 20px;color:#c7f4fb;font-size:12px}.nav button{width:100%;display:block;text-align:left;border:0;background:transparent;color:#daf6fb;padding:10px 12px;margin:3px 0;border-radius:12px;font-weight:800;cursor:pointer}.nav button.active,.nav button:hover{background:rgba(255,255,255,.15);color:white}.main{padding:24px}.hero,.card{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,59,92,.05)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}label{display:block;font-size:12px;font-weight:800;color:#28546a;margin-bottom:8px}input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit}button{border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer}.dark{background:var(--blue);color:white}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.note{font-size:13px;color:var(--muted);line-height:1.45}.page{display:none}.page.active{display:block}.table-wrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e4eef2;padding:6px;text-align:left}th{background:#eef8fc}.metric{background:#f7fcfe;border:1px solid var(--line);border-radius:14px;padding:12px}.metric b{font-size:22px;color:var(--blue)}.plot{min-height:749px}.ok{color:var(--ok)}.bad{color:var(--bad)}@media(max-width:950px){.app{grid-template-columns:1fr}.grid,.grid3{grid-template-columns:1fr}}
+:root{--blue:#003b5c;--cyan:#00a3c7;--bg:#f4f8fb;--line:#cfe4ec;--ink:#102a3a;--muted:#607987;--bad:#b91c1c;--ok:#107c41}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}.app{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:100vh}.side{background:linear-gradient(180deg,#003b5c,#00516f);color:white;padding:20px}.side h1{font-size:18px;margin:0 0 4px}.side p{margin:0 0 20px;color:#c7f4fb;font-size:12px}.nav button{width:100%;display:block;text-align:left;border:0;background:transparent;color:#daf6fb;padding:10px 12px;margin:3px 0;border-radius:12px;font-weight:800;cursor:pointer}.nav button.active,.nav button:hover{background:rgba(255,255,255,.15);color:white}.main{padding:24px;min-width:0}.hero,.card{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,59,92,.05)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}label{display:block;font-size:12px;font-weight:800;color:#28546a;margin-bottom:8px}input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit}button{border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer}.dark{background:var(--blue);color:white}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.note{font-size:13px;color:var(--muted);line-height:1.45}.page{display:none}.page.active{display:block}.table-wrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e4eef2;padding:6px;text-align:left}th{background:#eef8fc}.metric{background:#f7fcfe;border:1px solid var(--line);border-radius:14px;padding:12px}.metric b{font-size:22px;color:var(--blue)}.plot{min-height:749px}.ok{color:var(--ok)}.bad{color:var(--bad)}@media(max-width:950px){.app{grid-template-columns:minmax(0,1fr)}.grid,.grid3{grid-template-columns:1fr}}
 #cornerSmiley{position:fixed;left:12px;bottom:10px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,59,92,.18);background:rgba(255,255,255,.55);color:#003b5c;box-shadow:0 4px 12px rgba(0,59,92,.10);font-size:18px;line-height:1;display:grid;place-items:center;z-index:9999;opacity:.42;transition:opacity .2s,transform .2s}#cornerSmiley:hover{opacity:.95;transform:scale(1.07)}#cornerJoke{display:none;position:fixed;left:52px;bottom:12px;max-width:280px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,59,92,.14);font-size:13px;color:#102a3a;z-index:9999}
 
 .plot-tooltip{position:fixed;display:none;z-index:99999;background:#102a3a;color:white;border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.35;box-shadow:0 10px 28px rgba(0,59,92,.22);pointer-events:none;max-width:260px;white-space:pre-line}.wellpath-frame{border:0;background:transparent;border-radius:0;padding:0;box-shadow:none;margin-top:12px}.wellpath-frame .grid{margin:0}
@@ -12,13 +12,13 @@ window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.
 const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElementById(id),n=v=>{let x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN},fmt=(v,d=2)=>Number.isFinite(n(v))?n(v).toFixed(d):'',esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
 const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
-const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
+const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['npd','03b NPD Offset Wells'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
 const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],bhaRaw:[],ppfg:[],wp:[],bha:[],strings:[],sections:[],kickSettings:{},ecdSettings:{},tdSettings:{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[],schematicProfileLabelPos:{},schematicProfileLinePos:{},targets:[]};
 const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function seabedTVD(){return (Number.isFinite(n(state.general.waterDepth))?n(state.general.waterDepth):0)+(Number.isFinite(n(state.general.airGap))?n(state.general.airGap):0)}
 function defaults(){let sb=seabedTVD();state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:sb,ShoeTVD:515,TopMD:sb,ShoeMD:515,TopCementMD:sb,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:sb,ShoeTVD:1400,TopMD:sb,ShoeMD:1400,TopCementMD:sb,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:sb,ShoeTVD:2840,TopMD:sb,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}];state.bha=[{Component:'8.5in PDC bit',OD:8.5,ID:0,Length:0.4},{Component:'Mud motor',OD:6.75,ID:3.0,Length:8},{Component:'MWD/LWD',OD:6.75,ID:3.0,Length:9},{Component:'Stabilizer',OD:8.375,ID:3.0,Length:1.5},{Component:'Non-mag drill collar',OD:6.75,ID:2.8125,Length:9},{Component:'HWDP',OD:5,ID:3.0,Length:90}]};defaults();
 function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
-function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
+function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,npd:renderNpd,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
 function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component','Name'].includes(c)?v:n(v))});out.push(o)});return out}
@@ -894,6 +894,155 @@ function renderKick(){let valid=kickSections();$('page-kick').innerHTML=`<div cl
   if(!(s.outer>s.bha))warnings.push(`BHA OD (${fmt(s.bha,3)} in) must be smaller than the open hole diameter (${fmt(s.outer,3)} in).`);
   let invalid=warnings.length>0;
   let eff=swab?Math.max(0,s.mw-s.swabSG):s.mw,maasp=sec.FromTVD*(s.fg-s.mw)*BAR_PER_M_SG-s.choke-s.safety,kickIntensity=Math.max(0,(s.pp-eff)*sec.ToTVD*BAR_PER_M_SG),avail=Math.max(0,maasp-kickIntensity),denom=Math.max(s.mw*BAR_PER_M_SG-s.gas*BAR_PER_M_SG,.0001),allowed=invalid?NaN:avail/denom,len=Math.max(0,sec.ToMD-sec.FromMD),bhaLen=Math.min(s.bhaLen,len),dpLen=Math.max(0,len-bhaLen),capDP=capLpm(s.outer,s.dp),capBHA=capLpm(s.outer,s.bha),hBHA=Math.min(allowed,bhaLen),hDP=Math.max(0,Math.min(allowed-bhaLen,dpLen)),kt=invalid?NaN:(hBHA*capBHA+hDP*capDP)/1000;return{Scenario:swab?'Swabbed kick':'Normal kick',Section:sec.Section,PP:s.pp,FG:s.fg,Planned_MW:s.mw,Effective_MW:eff,MAASP_net_bar:maasp,Kick_intensity_bar:kickIntensity,Available_shoe_pressure_bar:avail,Allowable_height_m:allowed,KickTolerance_m3:kt,KickTolerance_bbl:kt*BBL,MinimumRequired_m3:s.minKT,Status:invalid?'INVALID INPUT':(kt>=s.minKT?'OK':'LOW'),Warnings:warnings.join(' ')}}function calcKick(swab=false){let sec=kickSections()[n($('ktSec').value)||0];if(!sec)return;saveKick();let r=calculateKick(sec,getKick(sec),swab);let warnBox=$('ktWarning');if(r.Warnings){warnBox.style.display='block';warnBox.textContent='Invalid input - results below are not usable until this is fixed: '+r.Warnings}else{warnBox.style.display='none';warnBox.textContent=''}$('ktMetrics').innerHTML=[['Scenario',r.Scenario,''],['Kick tolerance',r.KickTolerance_m3,'m³'],['Kick tolerance',r.KickTolerance_bbl,'bbl'],['MAASP net',r.MAASP_net_bar,'bar'],['Available shoe pressure',r.Available_shoe_pressure_bar,'bar'],['Result',r.Status,'']].map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b class="${m[1]==='OK'?'ok':(m[1]==='LOW'||m[1]==='INVALID INPUT')?'bad':''}">${typeof m[1]==='number'?fmt(m[1],2):m[1]}</b> ${m[2]}</div>`).join('');$('ktAudit').innerHTML=table([r])}
+
+/* NPD / Sodir offset wells: lists nearby Norwegian-shelf wellbores, nearest first, from the
+   public Sodir (formerly NPD) FactMaps wellbore layer. Surface-location spacing only - the
+   layer has no trajectories, so this is a screening list, not anti-collision. The well's
+   exact position never leaves the browser: only a coarse grid-aligned area is requested, and
+   all distances are computed locally. */
+const NPD_LAYER_URL='https://factmaps.sodir.no/api/rest/services/Factmaps/FactMapsWGS84/MapServer/201/query';
+const NPD_FIELDS=['wlbWellboreName','wlbWell','wlbNsDecDeg','wlbEwDecDeg','wlbStatus','wlbPurpose','wlbContent','wlbTotalDepth','wlbWaterDepth','wlbField','wlbDrillingOperator','wlbCompletionDate','wlbEntryYear','wlbFactPageUrl'];
+const NPD_GRID_LAT=0.25, NPD_GRID_LON=0.5;
+let NPD_PAGE=1000;
+let npdStore={}, npdRunId=0;
+function npdSetting(k,def){let v=state.general['npd'+k];return v===undefined||v===null||v===''?def:v}
+function parseCoord(txt,isLat){
+  // Decimal degrees ("65.3712", "65.3712 N") or degrees/minutes/seconds ("65 22 14.2 N", `65°22'14.2"N`).
+  let s=String(txt==null?'':txt).trim().toUpperCase().replace(/[°º'′"″,]/g,' ').replace(/\s+/g,' ').trim();
+  if(!s)return NaN;
+  let hemi=(s.match(/[NSEW]/)||[''])[0];
+  if(hemi&&(isLat?!/[NS]/.test(hemi):!/[EW]/.test(hemi)))return NaN;
+  let nums=(s.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number);
+  if(!nums.length||nums.length>3||(nums[1]>=60)||(nums[2]>=60))return NaN;
+  let sign=(nums[0]<0||hemi==='S'||hemi==='W')?-1:1;
+  let v=sign*(Math.abs(nums[0])+(nums[1]||0)/60+(nums[2]||0)/3600);
+  return Math.abs(v)<=(isLat?90:180)?v:NaN;
+}
+function npdGeo(lat1,lon1,lat2,lon2){
+  let R=6371.0088, rad=Math.PI/180, p1=lat1*rad, p2=lat2*rad, dp=(lat2-lat1)*rad, dl=(lon2-lon1)*rad;
+  let a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  let y=Math.sin(dl)*Math.cos(p2), x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+  return {km:2*R*Math.asin(Math.min(1,Math.sqrt(a))),bearing:(Math.atan2(y,x)/rad+360)%360};
+}
+function npdCompass(b){return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(b/22.5)%16]}
+function npdRegion(lat,lon,radiusKm){
+  let dLat=radiusKm/110.574, dLon=radiusKm/(111.32*Math.max(0.05,Math.cos(lat*Math.PI/180)));
+  return {south:Math.floor((lat-dLat)/NPD_GRID_LAT)*NPD_GRID_LAT,north:Math.ceil((lat+dLat)/NPD_GRID_LAT)*NPD_GRID_LAT,west:Math.floor((lon-dLon)/NPD_GRID_LON)*NPD_GRID_LON,east:Math.ceil((lon+dLon)/NPD_GRID_LON)*NPD_GRID_LON};
+}
+async function npdFetchRegion(reg){
+  let out=[],offset=0;
+  for(let guard=0;guard<10;guard++){
+    let qs=new URLSearchParams({where:'1=1',geometry:[reg.west,reg.south,reg.east,reg.north].join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',outFields:NPD_FIELDS.join(','),returnGeometry:'false',orderByFields:'OBJECTID',resultOffset:String(offset),resultRecordCount:String(NPD_PAGE),f:'json'});
+    let resp=await fetch(NPD_LAYER_URL+'?'+qs);
+    if(!resp.ok)throw new Error('The Sodir service answered HTTP '+resp.status+'.');
+    let j=await resp.json();
+    if(j.error)throw new Error((j.error.message||'The Sodir service reported an error')+'.');
+    let feats=j.features||[];
+    out=out.concat(feats.map(f=>f.attributes));
+    if(!feats.length||(!j.exceededTransferLimit&&feats.length<NPD_PAGE))return out;
+    offset+=feats.length;
+  }
+  throw new Error('That area holds more wellbores than can be listed - reduce the search radius.');
+}
+function npdLoad(reg,force){
+  let key=[reg.south,reg.west,reg.north,reg.east].join('|');
+  let cur=npdStore[key];
+  if(cur&&!force&&(cur.status==='loading'||cur.status==='ok'||cur.status==='error'))return key;
+  if(cur&&cur.status==='loading')return key;
+  let run=++npdRunId;
+  npdStore[key]={status:'loading',run,raw:[],err:'',fetchedAt:0};
+  npdFetchRegion(reg).then(raw=>{
+    if(!npdStore[key]||npdStore[key].run!==run)return;
+    npdStore[key]={status:'ok',run,raw,err:'',fetchedAt:Date.now()};
+  }).catch(e=>{
+    if(!npdStore[key]||npdStore[key].run!==run)return;
+    let off=typeof navigator!=='undefined'&&navigator.onLine===false;
+    npdStore[key]={status:'error',run,raw:[],err:off?'You appear to be offline - this check needs an internet connection.':(e instanceof TypeError?'Could not reach the Sodir wellbore service - check your connection ('+e.message+').':'The Sodir wellbore service reported a problem: '+(e&&e.message||e)),fetchedAt:0};
+  }).finally(()=>{if(state.active==='npd')npdRenderResults()});
+  return key;
+}
+function npdRows(raw,lat,lon,opts){
+  let rows=raw.filter(w=>Number.isFinite(w.wlbNsDecDeg)&&Number.isFinite(w.wlbEwDecDeg)).map(w=>{let g=npdGeo(lat,lon,w.wlbNsDecDeg,w.wlbEwDecDeg);return {w,km:g.km,brg:g.bearing}}).filter(r=>r.km<=opts.radius);
+  if(opts.exclShallow)rows=rows.filter(r=>!/SHALLOW|SOIL|SITE SURVEY/i.test(r.w.wlbPurpose||''));
+  if(opts.minTD>0)rows=rows.filter(r=>(Number(r.w.wlbTotalDepth)||0)>=opts.minTD);
+  let yr=w=>Number.isFinite(w.wlbCompletionDate)?new Date(w.wlbCompletionDate).getUTCFullYear():(w.wlbEntryYear||null);
+  let mk=list=>{
+    let near=list.slice().sort((a,b)=>a.km-b.km)[0], deep=list.slice().sort((a,b)=>(Number(b.w.wlbTotalDepth)||0)-(Number(a.w.wlbTotalDepth)||0))[0];
+    let uniq=f=>[...new Set(list.map(r=>f(r.w)).filter(Boolean))];
+    let years=list.map(r=>yr(r.w)).filter(Number.isFinite);
+    return {name:opts.group?(near.w.wlbWell||near.w.wlbWellboreName):near.w.wlbWellboreName,km:near.km,brg:near.brg,count:list.length,
+      status:uniq(w=>w.wlbStatus).join(', '),purpose:uniq(w=>w.wlbPurpose).join(', '),content:uniq(w=>w.wlbContent).join(', '),field:uniq(w=>w.wlbField).join(', '),
+      td:Number(deep.w.wlbTotalDepth)||null,wd:Number(near.w.wlbWaterDepth)||null,operator:(list.slice().sort((a,b)=>(yr(b.w)||0)-(yr(a.w)||0))[0].w.wlbDrillingOperator)||'',
+      year:years.length?Math.max(...years):null,url:deep.w.wlbFactPageUrl||''};
+  };
+  if(!opts.group)return rows.map(r=>mk([r])).sort((a,b)=>a.km-b.km);
+  let by={};rows.forEach(r=>{let k=r.w.wlbWell||r.w.wlbWellboreName;(by[k]=by[k]||[]).push(r)});
+  return Object.values(by).map(mk).sort((a,b)=>a.km-b.km);
+}
+function npdApply(){
+  let g=state.general;
+  g.surfaceLat=$('npdLat').value.trim();g.surfaceLon=$('npdLon').value.trim();
+  g.npdRadius=Math.min(100,Math.max(1,n($('npdRadius').value)||20));
+  g.npdMinTD=Math.max(0,n($('npdMinTD').value)||0);
+  g.npdExclShallow=$('npdExcl').checked?1:0;
+  g.npdGroup=$('npdGroup').checked?1:0;
+  npdRenderResults();
+}
+function npdRefresh(){
+  let lat=parseCoord(state.general.surfaceLat,true),lon=parseCoord(state.general.surfaceLon,false);
+  if(Number.isFinite(lat)&&Number.isFinite(lon))npdLoad(npdRegion(lat,lon,npdSetting('Radius',20)),true);
+  npdRenderResults();
+}
+function npdDownloadCsv(){
+  let lat=parseCoord(state.general.surfaceLat,true),lon=parseCoord(state.general.surfaceLon,false);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+  let rad=npdSetting('Radius',20), reg=npdRegion(lat,lon,rad), st=npdStore[[reg.south,reg.west,reg.north,reg.east].join('|')];
+  if(!st||st.status!=='ok')return;
+  let rows=npdRows(st.raw,lat,lon,{radius:rad,exclShallow:!!npdSetting('ExclShallow',1),minTD:npdSetting('MinTD',0),group:!!npdSetting('Group',1)});
+  let q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  let csv=[['Rank','Well','Distance_km','Bearing_deg','Wellbores','Status','Purpose','Content','Field','MaxTD_m','WaterDepth_m','Operator','LastCompleted','FactPages'].join(',')].concat(rows.map((r,i)=>[i+1,q(r.name),r.km.toFixed(2),Math.round(r.brg),r.count,q(r.status),q(r.purpose),q(r.content),q(r.field),r.td==null?'':r.td,r.wd==null?'':r.wd,q(r.operator),r.year==null?'':r.year,q(r.url)].join(','))).join('\n');
+  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='NPD_offset_wells.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+function npdRenderResults(){
+  let host=$('npdResults'); if(!host)return;
+  let g=state.general, radius=npdSetting('Radius',20), minTD=npdSetting('MinTD',0), excl=!!npdSetting('ExclShallow',1), grp=!!npdSetting('Group',1);
+  let latTxt=g.surfaceLat==null?'':g.surfaceLat, lonTxt=g.surfaceLon==null?'':g.surfaceLon;
+  let lat=parseCoord(latTxt,true), lon=parseCoord(lonTxt,false);
+  let hasInput=String(latTxt).trim()!==''||String(lonTxt).trim()!=='';
+  let valid=Number.isFinite(lat)&&Number.isFinite(lon);
+  let body='';
+  if(!valid){
+    body=`<div class="card"><p class="note">${hasInput?'<b>Position not recognised.</b> Use decimal degrees (65.3712 and 7.2534) or degrees-minutes-seconds (65 22 14.2 N and 7 15 12.2 E).':'Enter the well\'s surface position above and the nearest Norwegian-shelf wells will be listed automatically, closest first.'}</p></div>`;
+  } else {
+    let reg=npdRegion(lat,lon,radius), key=npdLoad(reg,false), st=npdStore[key];
+    if(st.status==='loading')body=`<div class="card"><p class="note">Fetching wellbores for the area from Sodir&hellip;</p></div>`;
+    else if(st.status==='error')body=`<div class="card"><p class="note bad"><b>${esc(st.err)}</b></p><div class="actions"><button class="dark" onclick="npdRefresh()">Try again</button></div></div>`;
+    else {
+      let rows=npdRows(st.raw,lat,lon,{radius,exclShallow:excl,minTD,group:grp});
+      let within=km=>rows.filter(r=>r.km<=km).length;
+      let near=rows[0];
+      let fmtKm=k=>k<1?`${Math.round(k*1000)} m`:`${k.toFixed(1)} km`;
+      let tiles=[['Nearest',near?`${esc(near.name)}`:'None',near?`${fmtKm(near.km)} ${npdCompass(near.brg)}`:`within ${radius} km`],['Within 5 km',within(5),'wells'],['Within 10 km',within(10),'wells'],[`Within ${radius} km`,rows.length,'wells']];
+      let band=km=>km<1?'<span class="npd-pill npd-close">&lt; 1 km</span>':km<5?'<span class="npd-pill npd-near">&lt; 5 km</span>':'';
+      let safeUrl=u=>/^https:\/\/factpages\.sodir\.no\//.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener">FactPages</a>`:'';
+      body=`<div class="grid3">${tiles.map(t=>`<div class="metric"><span class="note">${t[0]}</span><br><b>${t[1]}</b> ${t[2]}</div>`).join('')}</div>`
+        +`<div class="card"><h3>Offset wells, nearest first</h3>`
+        +(rows.length?`<div class="table-wrap" style="max-height:560px"><table><thead><tr><th>#</th><th>${grp?'Well':'Wellbore'}</th><th class="num">Distance</th><th>Bearing</th>${grp?'<th class="num">Wellbores</th>':''}<th>Status</th><th>Purpose / content</th><th>Field</th><th class="num">Max TD (m)</th><th class="num">Water depth (m)</th><th>Operator</th><th class="num">Last completed</th><th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td class="num" style="white-space:nowrap">${fmtKm(r.km)} ${band(r.km)}</td><td>${Math.round(r.brg)}&deg; ${npdCompass(r.brg)}</td>${grp?`<td class="num">${r.count}</td>`:''}<td>${esc(r.status)}</td><td>${esc([r.purpose,r.content].filter(Boolean).join(' / '))}</td><td>${esc(r.field)}</td><td class="num">${r.td==null?'':fmt(r.td,0)}</td><td class="num">${r.wd==null?'':fmt(r.wd,0)}</td><td>${esc(r.operator)}</td><td class="num">${r.year==null?'':r.year}</td><td style="white-space:nowrap">${safeUrl(r.url)}</td></tr>`).join('')}</tbody></table></div>`:`<p class="note">No wells match within ${radius} km with the current filters.</p>`)
+        +`<p class="note" style="margin-top:10px">${st.raw.length} wellbores loaded for the surrounding area ${new Date(st.fetchedAt).toLocaleString()}. Distances are straight-line between surface locations (WGS84). <b>This is a screening list, not anti-collision:</b> the Sodir layer holds no trajectories, so subsurface separation needs the offset surveys.</p></div>`;
+    }
+  }
+  host.innerHTML=body;
+}
+function renderNpd(){
+  let g=state.general, radius=npdSetting('Radius',20), minTD=npdSetting('MinTD',0), excl=!!npdSetting('ExclShallow',1), grp=!!npdSetting('Group',1);
+  let latTxt=g.surfaceLat==null?'':g.surfaceLat, lonTxt=g.surfaceLon==null?'':g.surfaceLon;
+  $('page-npd').innerHTML=`<style>.npd-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px}.npd-close{background:#fde9e9;color:#a21b1b}.npd-near{background:#fff6e0;color:#8a5a00}.npd-opts{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:6px}.npd-opts label{display:flex;gap:6px;align-items:center;margin:0;font-weight:600}.npd-opts input[type=checkbox]{width:auto}</style>`
+   +`<div class="card"><h3>NPD offset wells</h3><p class="note">Automatic offset screening against the public Sodir (NPD) wellbore register. The exact position stays in your browser: only a coarse map area (about ${NPD_GRID_LAT}&deg; &times; ${NPD_GRID_LON}&deg;) is requested, and distances are calculated here.</p>`
+   +`<div class="grid3"><label>Surface latitude (N)<input id="npdLat" value="${esc(latTxt)}" placeholder="65.3712 or 65 22 14.2 N" onchange="npdApply()"></label><label>Surface longitude (E)<input id="npdLon" value="${esc(lonTxt)}" placeholder="7.2534 or 7 15 12.2 E" onchange="npdApply()"></label><label>Search radius (km)<input id="npdRadius" type="number" min="1" max="100" value="${radius}" onchange="npdApply()"></label></div>`
+   +`<div class="npd-opts"><label>Min total depth (m)<input id="npdMinTD" type="number" min="0" step="100" value="${minTD}" style="width:110px" onchange="npdApply()"></label><label><input id="npdExcl" type="checkbox" ${excl?'checked':''} onchange="npdApply()">Hide shallow-gas, soil and site-survey boreholes</label><label><input id="npdGroup" type="checkbox" ${grp?'checked':''} onchange="npdApply()">Group sidetracks by well</label></div>`
+   +`<div class="actions"><button class="dark" onclick="npdApply()">Check offsets</button><button onclick="npdRefresh()">Refresh from Sodir</button><button onclick="npdDownloadCsv()">Download CSV</button></div></div><div id="npdResults"></div>`;
+  npdRenderResults();
+}
 
 /* ECD / Hydraulics: simplified Bingham-plastic laminar annular friction model.
    Splits the wellbore from bit to surface into segments (BHA components against
