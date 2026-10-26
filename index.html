@@ -1,4 +1,4 @@
-<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DrillWise Well Planner</title><style>
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DrillWise Well Planner</title><meta name="theme-color" content="#003b5c"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23003b5c'/%3E%3Cpath d='M15 5v13c0 5 4 5 9 9' stroke='%2300a3c7' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"><style>
 :root{--blue:#003b5c;--cyan:#00a3c7;--bg:#f4f8fb;--line:#cfe4ec;--ink:#102a3a;--muted:#607987;--bad:#b91c1c;--ok:#107c41}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Segoe UI,Arial,sans-serif;color:var(--ink)}.app{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:100vh}.side{background:linear-gradient(180deg,#003b5c,#00516f);color:white;padding:20px}.side h1{font-size:18px;margin:0 0 4px}.side p{margin:0 0 20px;color:#c7f4fb;font-size:12px}.nav button{width:100%;display:block;text-align:left;border:0;background:transparent;color:#daf6fb;padding:10px 12px;margin:3px 0;border-radius:12px;font-weight:800;cursor:pointer}.nav button.active,.nav button:hover{background:rgba(255,255,255,.15);color:white}.main{padding:24px;min-width:0}.hero,.card{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,59,92,.05)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}label{display:block;font-size:12px;font-weight:800;color:#28546a;margin-bottom:8px}input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit}button{border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer}.dark{background:var(--blue);color:white}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.note{font-size:13px;color:var(--muted);line-height:1.45}.page{display:none}.page.active{display:block}.table-wrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e4eef2;padding:6px;text-align:left}th{background:#eef8fc}.metric{background:#f7fcfe;border:1px solid var(--line);border-radius:14px;padding:12px}.metric b{font-size:22px;color:var(--blue)}.plot{min-height:749px}.ok{color:var(--ok)}.bad{color:var(--bad)}@media(max-width:950px){.app{grid-template-columns:minmax(0,1fr)}.grid,.grid3{grid-template-columns:1fr}}
 #cornerSmiley{position:fixed;left:12px;bottom:10px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(0,59,92,.18);background:rgba(255,255,255,.55);color:#003b5c;box-shadow:0 4px 12px rgba(0,59,92,.10);font-size:18px;line-height:1;display:grid;place-items:center;z-index:9999;opacity:.42;transition:opacity .2s,transform .2s}#cornerSmiley:hover{opacity:.95;transform:scale(1.07)}#cornerJoke{display:none;position:fixed;left:52px;bottom:12px;max-width:280px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 12px;box-shadow:0 8px 24px rgba(0,59,92,.14);font-size:13px;color:#102a3a;z-index:9999}
 
@@ -22,6 +22,64 @@
 .check-detail{color:var(--muted);line-height:1.45}
 .check-open{width:70px;text-align:right}
 .check-table button{padding:4px 10px;font-size:12px;border-radius:9px}
+/* Professional polish: refinements layered over the base rules above (typography, focus
+   states, sticky navigation, table readability, narrow-screen nav, print). */
+:root{--font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;--shadow-sm:0 1px 2px rgba(0,59,92,.06),0 4px 14px rgba(0,59,92,.05);--ring:0 0 0 3px rgba(0,163,199,.28)}
+body{font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit}
+h3{font-size:16px;font-weight:650;letter-spacing:-.005em;margin:0 0 10px;color:var(--ink)}
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.side h1{font-size:17px;font-weight:700;letter-spacing:.01em;padding-bottom:14px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.14)}
+.nav button{font-weight:600;font-size:13px;padding:9px 12px;margin:2px 0;border-radius:10px;position:relative;transition:background .12s,color .12s}
+.nav button.active{background:rgba(255,255,255,.16);box-shadow:inset 3px 0 0 var(--cyan)}
+.app{grid-template-columns:280px minmax(0,1fr)}
+.main{max-width:1500px;min-width:0}
+[id$="Audit"]{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+[id$="Audit"] table{min-width:100%}
+.hero,.card{border-radius:16px;box-shadow:var(--shadow-sm)}
+label{font-weight:600;color:#33566a;letter-spacing:.005em}
+input,select{transition:border-color .12s,box-shadow .12s;background:#fff}
+input:hover,select:hover{border-color:#a9cbd8}
+input:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:var(--ring)}
+button{font-weight:600;transition:background .12s,border-color .12s,box-shadow .12s,transform .06s}
+button:hover{background:#f1f9fc;border-color:#a9cbd8}
+button:active{transform:translateY(1px)}
+button:focus-visible,.nav button:focus-visible{outline:none;box-shadow:var(--ring)}
+button.dark:hover{background:#0a5073;border-color:#0a5073}
+button:disabled,input:disabled{opacity:.55;cursor:not-allowed}
+.metric{border-radius:12px}
+.metric>.note:first-child{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.metric b{font-weight:700;letter-spacing:-.01em}
+.table-wrap{border-radius:12px}
+.table-wrap thead th,table thead th{position:sticky;top:0;z-index:1;font-weight:600;color:#33566a;text-transform:uppercase;font-size:11px;letter-spacing:.04em;background:#eef8fc}
+table tbody tr:nth-child(even){background:#fafdfe}
+table tbody tr:hover{background:#f1f9fc}
+td.num{text-align:right}
+.plot{overflow-x:auto}
+.plot svg text{font-family:var(--font)}
+@media(max-width:950px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;padding:12px 14px}
+  .side h1{border:0;padding:0;margin:0 0 8px}
+  .nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .nav button{width:auto;white-space:nowrap;margin:0;flex:0 0 auto;background:rgba(255,255,255,.08)}
+  .nav button.active{box-shadow:inset 0 -3px 0 var(--cyan)}
+  .main{padding:14px}
+  .grid>*,.grid3>*,.riser-v11-layout>*{min-width:0}
+  .plot svg[viewBox]{max-width:100%;height:auto}
+}
+@media(max-width:1100px){
+  .page table:not(.table-wrap table){display:block;overflow-x:auto;max-width:100%}
+}
+@media print{
+  .side,.actions,#cornerSmiley,#cornerJoke,.plot-tooltip{display:none!important}
+  .app{display:block}
+  body{background:#fff}
+  .main{padding:0;max-width:none}
+  .card,.hero{box-shadow:none;border-color:#cfd8dc;break-inside:avoid}
+  .page{display:none!important}
+  .page.active{display:block!important}
+}
 </style></head><body><div class="app"><aside class="side"><h1>DrillWise Well Planner</h1><div id="nav" class="nav"></div></aside><main class="main"><div id="runtimeError" style="display:none;background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3;border-radius:12px;padding:10px;margin-bottom:14px"></div><div id="pages"></div></main></div><script>
 window.addEventListener('error',e=>{let msg=String((e&&e.message)||'');let isScript=e&&e.target&&String(e.target.tagName).toUpperCase()==='SCRIPT';let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isScript||isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting issue suppressed:',msg);return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
 window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.reason.message)||e.reason||'');let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting promise issue suppressed:',msg);if(e&&e.preventDefault)e.preventDefault();return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
@@ -35,7 +93,7 @@ function seabedTVD(){return (Number.isFinite(n(state.general.waterDepth))?n(stat
 function defaults(){let sb=seabedTVD();state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:sb,ShoeTVD:515,TopMD:sb,ShoeMD:515,TopCementMD:sb,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:sb,ShoeTVD:1400,TopMD:sb,ShoeMD:1400,TopCementMD:sb,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:sb,ShoeTVD:2840,TopMD:sb,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}];state.bha=[{Component:'8.5in PDC bit',OD:8.5,ID:0,Length:0.4},{Component:'Mud motor',OD:6.75,ID:3.0,Length:8},{Component:'MWD/LWD',OD:6.75,ID:3.0,Length:9},{Component:'Stabilizer',OD:8.375,ID:3.0,Length:1.5},{Component:'Non-mag drill collar',OD:6.75,ID:2.8125,Length:9},{Component:'HWDP',OD:5,ID:3.0,Length:90}]};defaults();
 function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
 function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,npd:renderNpd,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
-function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
+function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td${typeof r[c]==='number'?' class="num"':''}>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component','Name'].includes(c)?v:n(v))});out.push(o)});return out}
 function deriveSectionsFromStrings(prevSections){
