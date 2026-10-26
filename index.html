@@ -183,7 +183,7 @@ function parseText(t){
   wp:{statusId:'wpStatus',mapId:'wpMap',previewId:'wpPreview',rawKey:'wpRaw',fields:['MD','TVD','Inc','Azimuth','NS','EW'],keys:{MD:['md','measured'],TVD:['tvd','depth'],Inc:['inc','incl'],Azimuth:['azi','azim'],NS:['y-offset','north','n/s','ns'],EW:['x-offset','east','e/w','ew']}},
   bha:{statusId:'bhaStatus',mapId:'bhaMap',previewId:'bhaPreview',rawKey:'bhaRaw',fields:['Component','OD','ID','Length'],keys:{Component:['component','description','item','tool','name'],OD:['od','outer'],ID:['id','inner'],Length:['length','len']}}
 };
-async function loadUpload(file,kind){if(!file)return;let cfg=UPLOAD_KINDS[kind],status=$(cfg.statusId);try{let rows;if(/\.xlsx?$/i.test(file.name)){status.textContent='Loading Excel reader...';let X=await ensureXLSX();let wb=X.read(await file.arrayBuffer(),{type:'array'});let ws=wb.Sheets[wb.SheetNames[0]];rows=parseAOA(X.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}))}else rows=parseText(await file.text());state[cfg.rawKey]=rows;status.textContent=`Loaded ${rows.length} rows from ${file.name}`;showMap(kind,rows)}catch(e){status.textContent='Upload failed: '+e.message+'. If offline, save Excel as CSV and upload the CSV.'}}
+async function loadUpload(file,kind){if(!file)return;let cfg=UPLOAD_KINDS[kind],status=$(cfg.statusId);try{let rows,hdr=[];if(/\.xlsx?$/i.test(file.name)){status.textContent='Loading Excel reader...';let X=await ensureXLSX();let wb=X.read(await file.arrayBuffer(),{type:'array'});let ws=wb.Sheets[wb.SheetNames[0]];let aoa=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});rows=parseAOA(aoa);hdr=aoa.slice(0,150).map(r=>r.filter(c=>String(c).trim()!=='').join(' : '))}else{let txt=await file.text();rows=parseText(txt);hdr=txt.split(/\r?\n/).slice(0,150)}state[cfg.rawKey]=rows;status.textContent=`Loaded ${rows.length} rows from ${file.name}`+(kind==='wp'?npdCaptureWellpathPosition(hdr,file.name):'');showMap(kind,rows)}catch(e){status.textContent='Upload failed: '+e.message+'. If offline, save Excel as CSV and upload the CSV.'}}
 function wireUploads(){let p=$('ppfgFile'),w=$('wpFile'),b=$('bhaFile');if(p)p.onchange=e=>loadUpload(e.target.files[0],'pp');if(w)w.onchange=e=>loadUpload(e.target.files[0],'wp');if(b)b.onchange=e=>loadUpload(e.target.files[0],'bha')}
 function showMap(kind,rows){let cfg=UPLOAD_KINDS[kind],div=$(cfg.mapId),cols=Object.keys(rows[0]||{});let guess=f=>cols.find(c=>cfg.keys[f].some(k=>c.toLowerCase().includes(k)))||'';div.innerHTML='<div class="grid3">'+cfg.fields.map(f=>`<label>${f}<select id="map_${kind}_${f}"><option></option>${cols.map(c=>`<option ${c===guess(f)?'selected':''}>${esc(c)}</option>`).join('')}</select></label>`).join('')+`</div><div class="actions"><button class="dark" onclick="applyMap('${kind}')">Apply mapping</button><button onclick="previewRaw('${kind}')">Preview rows</button></div><div class="table-wrap" id="${cfg.previewId}"></div>`}
 function previewRaw(kind){let cfg=UPLOAD_KINDS[kind];$(cfg.previewId).innerHTML=table(state[cfg.rawKey].slice(0,20))}
@@ -918,6 +918,49 @@ function parseCoord(txt,isLat){
   let v=sign*(Math.abs(nums[0])+(nums[1]||0)/60+(nums[2]||0)/3600);
   return Math.abs(v)<=(isLat?90:180)?v:NaN;
 }
+function npdFmtDms(v,isLat){
+  let hemi=isLat?(v<0?'S':'N'):(v<0?'W':'E');
+  let t=Math.round(Math.abs(v)*3600*1000)/1000, d=Math.floor(t/3600); t-=d*3600;
+  let m=Math.floor(t/60), sec=t-m*60;
+  return d+' '+m+' '+sec.toFixed(3)+' '+hemi;
+}
+function npdHeaderPosition(lines){
+  // Finds a surface latitude/longitude pair in a survey file's header. The degree/minute/second
+  // glyphs are discarded however the file's encoding mangled them (a Windows-1252 degree sign read
+  // as UTF-8 arrives as a replacement character), so only digits, '.', '-' and N/S/E/W matter.
+  let find=re=>{for(let i=0;i<lines.length;i++){let m=String(lines[i]).match(re);if(m)return m[1]}return null};
+  let clean=t=>String(t).replace(/[^0-9.\-NSEWnsew ]/g,' ');
+  let latRaw=find(/^\s*(?:surface|slot|well(?:head)?|site)?\s*lat(?:itude)?(?:\s*\(?map\)?)?\s*[:=,;\t]\s*(.+?)\s*$/i);
+  let lonRaw=find(/^\s*(?:surface|slot|well(?:head)?|site)?\s*lon(?:g(?:itude)?)?(?:\s*\(?map\)?)?\s*[:=,;\t]\s*(.+?)\s*$/i);
+  if(latRaw==null||lonRaw==null)return null;
+  let lat=parseCoord(clean(latRaw),true), lon=parseCoord(clean(lonRaw),false);
+  return Number.isFinite(lat)&&Number.isFinite(lon)?{lat,lon}:null;
+}
+function npdCaptureWellpathPosition(lines,fileName){
+  let g=state.general, pos=npdHeaderPosition(lines);
+  if(!pos){g.wpLat=null;g.wpLon=null;g.wpSrc='';g.wpDatum='';return '. No surface latitude/longitude found in the file header - enter the position on the NPD tab.'}
+  let datum='';
+  for(let i=0;i<lines.length;i++){let m=String(lines[i]).match(/geo\s*datum\s*[:=]\s*(.+?)\s*$/i);if(m){datum=m[1].trim();break}}
+  g.wpLat=pos.lat;g.wpLon=pos.lon;g.wpSrc=fileName;g.wpDatum=/european\s*1950|\bed\s*-?50\b/i.test(datum)?'ED50':datum;
+  g.surfaceLat='';g.surfaceLon='';   // a new survey's position replaces any earlier manual entry
+  return '. Surface position found in the header: '+npdFmtDms(pos.lat,true)+', '+npdFmtDms(pos.lon,false)+(g.wpDatum?' ('+g.wpDatum+')':'')+' - used by the NPD tab.';
+}
+function npdPosition(){
+  // Manual entry (if any) wins; otherwise the surface position read from the wellpath header.
+  let g=state.general, hasWp=Number.isFinite(g.wpLat)&&Number.isFinite(g.wpLon);
+  let mLat=String(g.surfaceLat==null?'':g.surfaceLat).trim(), mLon=String(g.surfaceLon==null?'':g.surfaceLon).trim();
+  if(mLat!==''||mLon!=='')return {source:'manual',latTxt:mLat,lonTxt:mLon,lat:parseCoord(mLat,true),lon:parseCoord(mLon,false),hasWp};
+  if(hasWp)return {source:'wellpath',latTxt:npdFmtDms(g.wpLat,true),lonTxt:npdFmtDms(g.wpLon,false),lat:g.wpLat,lon:g.wpLon,hasWp};
+  return {source:'none',latTxt:'',lonTxt:'',lat:NaN,lon:NaN,hasWp:false};
+}
+function npdUseWellpath(){state.general.surfaceLat='';state.general.surfaceLon='';renderNpd()}
+function npdSourceNote(){
+  let g=state.general, P=npdPosition();
+  let datumNote=g.wpDatum==='ED50'?' The survey coordinates are ED50 while Sodir maps WGS84 - a shift of roughly 100 m, immaterial at kilometre spacing.':'';
+  if(P.source==='wellpath')return '<b>Position taken from the wellpath</b> ('+esc(g.wpSrc||'uploaded survey')+(g.wpDatum?', '+esc(g.wpDatum):'')+'). Edit the fields to override it.'+datumNote;
+  if(P.source==='manual')return '<b>Manual position.</b> '+(P.hasWp?'The wellpath ('+esc(g.wpSrc||'uploaded survey')+') gives '+esc(npdFmtDms(g.wpLat,true))+', '+esc(npdFmtDms(g.wpLon,false))+' <button style="padding:2px 8px;font-size:12px" onclick="npdUseWellpath()">Use wellpath position</button>':'Upload a survey whose header contains the surface latitude/longitude to fill this in automatically.');
+  return 'No position yet. Upload a survey whose header contains the surface latitude/longitude (Inputs tab) and it is picked up automatically, or enter it here.';
+}
 function npdGeo(lat1,lon1,lat2,lon2){
   let R=6371.0088, rad=Math.PI/180, p1=lat1*rad, p2=lat2*rad, dp=(lat2-lat1)*rad, dl=(lon2-lon1)*rad;
   let a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
@@ -980,8 +1023,13 @@ function npdRows(raw,lat,lon,opts){
   return Object.values(by).map(mk).sort((a,b)=>a.km-b.km);
 }
 function npdApply(){
-  let g=state.general;
-  g.surfaceLat=$('npdLat').value.trim();g.surfaceLon=$('npdLon').value.trim();
+  let g=state.general, latV=$('npdLat').value.trim(), lonV=$('npdLon').value.trim();
+  let hasWp=Number.isFinite(g.wpLat)&&Number.isFinite(g.wpLon);
+  // Fields still showing the wellpath's own position are not an override; anything else is.
+  if(hasWp&&latV===npdFmtDms(g.wpLat,true)&&lonV===npdFmtDms(g.wpLon,false)){g.surfaceLat='';g.surfaceLon=''}
+  else if(hasWp&&latV===''&&lonV===''){g.surfaceLat='';g.surfaceLon='';$('npdLat').value=npdFmtDms(g.wpLat,true);$('npdLon').value=npdFmtDms(g.wpLon,false)}
+  else{g.surfaceLat=latV;g.surfaceLon=lonV}
+  let sn=$('npdSource');if(sn)sn.innerHTML=npdSourceNote();
   g.npdRadius=Math.min(100,Math.max(1,n($('npdRadius').value)||20));
   g.npdMinTD=Math.max(0,n($('npdMinTD').value)||0);
   g.npdExclShallow=$('npdExcl').checked?1:0;
@@ -989,12 +1037,12 @@ function npdApply(){
   npdRenderResults();
 }
 function npdRefresh(){
-  let lat=parseCoord(state.general.surfaceLat,true),lon=parseCoord(state.general.surfaceLon,false);
+  let P=npdPosition(),lat=P.lat,lon=P.lon;
   if(Number.isFinite(lat)&&Number.isFinite(lon))npdLoad(npdRegion(lat,lon,npdSetting('Radius',20)),true);
   npdRenderResults();
 }
 function npdDownloadCsv(){
-  let lat=parseCoord(state.general.surfaceLat,true),lon=parseCoord(state.general.surfaceLon,false);
+  let P=npdPosition(),lat=P.lat,lon=P.lon;
   if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
   let rad=npdSetting('Radius',20), reg=npdRegion(lat,lon,rad), st=npdStore[[reg.south,reg.west,reg.north,reg.east].join('|')];
   if(!st||st.status!=='ok')return;
@@ -1006,26 +1054,26 @@ function npdDownloadCsv(){
 function npdRenderResults(){
   let host=$('npdResults'); if(!host)return;
   let g=state.general, radius=npdSetting('Radius',20), minTD=npdSetting('MinTD',0), excl=!!npdSetting('ExclShallow',1), grp=!!npdSetting('Group',1);
-  let latTxt=g.surfaceLat==null?'':g.surfaceLat, lonTxt=g.surfaceLon==null?'':g.surfaceLon;
-  let lat=parseCoord(latTxt,true), lon=parseCoord(lonTxt,false);
-  let hasInput=String(latTxt).trim()!==''||String(lonTxt).trim()!=='';
+  let P=npdPosition(), lat=P.lat, lon=P.lon;
+  let hasInput=P.source==='manual';
   let valid=Number.isFinite(lat)&&Number.isFinite(lon);
   let body='';
   if(!valid){
-    body=`<div class="card"><p class="note">${hasInput?'<b>Position not recognised.</b> Use decimal degrees (65.3712 and 7.2534) or degrees-minutes-seconds (65 22 14.2 N and 7 15 12.2 E).':'Enter the well\'s surface position above and the nearest Norwegian-shelf wells will be listed automatically, closest first.'}</p></div>`;
+    body=`<div class="card"><p class="note">${hasInput?'<b>Position not recognised.</b> Use decimal degrees (65.3712 and 7.2534) or degrees-minutes-seconds (65 22 14.2 N and 7 15 12.2 E).':'Upload a survey with a surface latitude/longitude in its header, or enter the well\'s surface position above, and the nearest Norwegian-shelf wells will be listed automatically, closest first.'}</p></div>`;
   } else {
     let reg=npdRegion(lat,lon,radius), key=npdLoad(reg,false), st=npdStore[key];
     if(st.status==='loading')body=`<div class="card"><p class="note">Fetching wellbores for the area from Sodir&hellip;</p></div>`;
     else if(st.status==='error')body=`<div class="card"><p class="note bad"><b>${esc(st.err)}</b></p><div class="actions"><button class="dark" onclick="npdRefresh()">Try again</button></div></div>`;
     else {
       let rows=npdRows(st.raw,lat,lon,{radius,exclShallow:excl,minTD,group:grp});
+      let usedLine='<p class="note" style="margin:0 0 10px">Distances measured from '+esc(npdFmtDms(lat,true))+', '+esc(npdFmtDms(lon,false))+' ('+(P.source==='wellpath'?'from the wellpath':'entered manually')+').</p>';
       let within=km=>rows.filter(r=>r.km<=km).length;
       let near=rows[0];
       let fmtKm=k=>k<1?`${Math.round(k*1000)} m`:`${k.toFixed(1)} km`;
       let tiles=[['Nearest',near?`${esc(near.name)}`:'None',near?`${fmtKm(near.km)} ${npdCompass(near.brg)}`:`within ${radius} km`],['Within 5 km',within(5),'wells'],['Within 10 km',within(10),'wells'],[`Within ${radius} km`,rows.length,'wells']];
       let band=km=>km<1?'<span class="npd-pill npd-close">&lt; 1 km</span>':km<5?'<span class="npd-pill npd-near">&lt; 5 km</span>':'';
       let safeUrl=u=>/^https:\/\/factpages\.sodir\.no\//.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener">FactPages</a>`:'';
-      body=`<div class="grid3">${tiles.map(t=>`<div class="metric"><span class="note">${t[0]}</span><br><b>${t[1]}</b> ${t[2]}</div>`).join('')}</div>`
+      body=usedLine+(!st.raw.length?'<div class="card"><p class="note"><b>Sodir returned no wellbores for this area.</b> Check that the position is on the Norwegian shelf (latitude north, longitude east).</p></div>':'')+`<div class="grid3">${tiles.map(t=>`<div class="metric"><span class="note">${t[0]}</span><br><b>${t[1]}</b> ${t[2]}</div>`).join('')}</div>`
         +`<div class="card"><h3>Offset wells, nearest first</h3>`
         +(rows.length?`<div class="table-wrap" style="max-height:560px"><table><thead><tr><th>#</th><th>${grp?'Well':'Wellbore'}</th><th class="num">Distance</th><th>Bearing</th>${grp?'<th class="num">Wellbores</th>':''}<th>Status</th><th>Purpose / content</th><th>Field</th><th class="num">Max TD (m)</th><th class="num">Water depth (m)</th><th>Operator</th><th class="num">Last completed</th><th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td class="num" style="white-space:nowrap">${fmtKm(r.km)} ${band(r.km)}</td><td>${Math.round(r.brg)}&deg; ${npdCompass(r.brg)}</td>${grp?`<td class="num">${r.count}</td>`:''}<td>${esc(r.status)}</td><td>${esc([r.purpose,r.content].filter(Boolean).join(' / '))}</td><td>${esc(r.field)}</td><td class="num">${r.td==null?'':fmt(r.td,0)}</td><td class="num">${r.wd==null?'':fmt(r.wd,0)}</td><td>${esc(r.operator)}</td><td class="num">${r.year==null?'':r.year}</td><td style="white-space:nowrap">${safeUrl(r.url)}</td></tr>`).join('')}</tbody></table></div>`:`<p class="note">No wells match within ${radius} km with the current filters.</p>`)
         +`<p class="note" style="margin-top:10px">${st.raw.length} wellbores loaded for the surrounding area ${new Date(st.fetchedAt).toLocaleString()}. Distances are straight-line between surface locations (WGS84). <b>This is a screening list, not anti-collision:</b> the Sodir layer holds no trajectories, so subsurface separation needs the offset surveys.</p></div>`;
@@ -1035,11 +1083,11 @@ function npdRenderResults(){
 }
 function renderNpd(){
   let g=state.general, radius=npdSetting('Radius',20), minTD=npdSetting('MinTD',0), excl=!!npdSetting('ExclShallow',1), grp=!!npdSetting('Group',1);
-  let latTxt=g.surfaceLat==null?'':g.surfaceLat, lonTxt=g.surfaceLon==null?'':g.surfaceLon;
+  let P0=npdPosition(), latTxt=P0.latTxt, lonTxt=P0.lonTxt;
   $('page-npd').innerHTML=`<style>.npd-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px}.npd-close{background:#fde9e9;color:#a21b1b}.npd-near{background:#fff6e0;color:#8a5a00}.npd-opts{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:6px}.npd-opts label{display:flex;gap:6px;align-items:center;margin:0;font-weight:600}.npd-opts input[type=checkbox]{width:auto}</style>`
    +`<div class="card"><h3>NPD offset wells</h3><p class="note">Automatic offset screening against the public Sodir (NPD) wellbore register. The exact position stays in your browser: only a coarse map area (about ${NPD_GRID_LAT}&deg; &times; ${NPD_GRID_LON}&deg;) is requested, and distances are calculated here.</p>`
    +`<div class="grid3"><label>Surface latitude (N)<input id="npdLat" value="${esc(latTxt)}" placeholder="65.3712 or 65 22 14.2 N" onchange="npdApply()"></label><label>Surface longitude (E)<input id="npdLon" value="${esc(lonTxt)}" placeholder="7.2534 or 7 15 12.2 E" onchange="npdApply()"></label><label>Search radius (km)<input id="npdRadius" type="number" min="1" max="100" value="${radius}" onchange="npdApply()"></label></div>`
-   +`<div class="npd-opts"><label>Min total depth (m)<input id="npdMinTD" type="number" min="0" step="100" value="${minTD}" style="width:110px" onchange="npdApply()"></label><label><input id="npdExcl" type="checkbox" ${excl?'checked':''} onchange="npdApply()">Hide shallow-gas, soil and site-survey boreholes</label><label><input id="npdGroup" type="checkbox" ${grp?'checked':''} onchange="npdApply()">Group sidetracks by well</label></div>`
+   +`<p class="note" id="npdSource" style="margin:2px 0 8px">${npdSourceNote()}</p><div class="npd-opts"><label>Min total depth (m)<input id="npdMinTD" type="number" min="0" step="100" value="${minTD}" style="width:110px" onchange="npdApply()"></label><label><input id="npdExcl" type="checkbox" ${excl?'checked':''} onchange="npdApply()">Hide shallow-gas, soil and site-survey boreholes</label><label><input id="npdGroup" type="checkbox" ${grp?'checked':''} onchange="npdApply()">Group sidetracks by well</label></div>`
    +`<div class="actions"><button class="dark" onclick="npdApply()">Check offsets</button><button onclick="npdRefresh()">Refresh from Sodir</button><button onclick="npdDownloadCsv()">Download CSV</button></div></div><div id="npdResults"></div>`;
   npdRenderResults();
 }
