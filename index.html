@@ -6,6 +6,22 @@
 
 /* DrillWise v1.1 fixed: Riser colour controls side panel only */
 .riser-v11-layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px;align-items:start}.riser-v11-side{position:sticky;top:14px;background:#f8fcff;border:1px solid var(--line,#cfe4ec);border-radius:16px;padding:12px}.riser-v11-side h4{margin:0 0 10px;color:#102a3a}.riser-v11-side label{display:block;margin-bottom:10px}.riser-v11-side input[type=color]{height:34px;padding:2px}@media(max-width:1050px){.riser-v11-layout{grid-template-columns:1fr}.riser-v11-side{position:static}}
+/* Design checks */
+.pill{display:inline-block;min-width:60px;text-align:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;border:1px solid transparent}
+.pill-ok{background:#e7f6ee;color:#0b6b37;border-color:#bfe5cf}
+.pill-warn{background:#fff6e0;color:#8a5a00;border-color:#f3dc9c}
+.pill-fail{background:#fde9e9;color:#a21b1b;border-color:#f4bcbc}
+.check-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:#f7fcfe;margin-top:6px}
+.check-summary b{font-size:16px}
+.check-summary.check-ok{background:#f1faf5;border-color:#bfe5cf}
+.check-summary.check-warn{background:#fffaf0;border-color:#f3dc9c}
+.check-summary.check-fail{background:#fff5f5;border-color:#f4bcbc}
+.check-table td{padding:10px 8px;vertical-align:top}
+.check-status{width:84px}
+.check-name{width:30%;font-weight:600}
+.check-detail{color:var(--muted);line-height:1.45}
+.check-open{width:70px;text-align:right}
+.check-table button{padding:4px 10px;font-size:12px;border-radius:9px}
 </style></head><body><div class="app"><aside class="side"><h1>DrillWise Well Planner</h1><div id="nav" class="nav"></div></aside><main class="main"><div id="runtimeError" style="display:none;background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3;border-radius:12px;padding:10px;margin-bottom:14px"></div><div id="pages"></div></main></div><script>
 window.addEventListener('error',e=>{let msg=String((e&&e.message)||'');let isScript=e&&e.target&&String(e.target.tagName).toUpperCase()==='SCRIPT';let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isScript||isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting issue suppressed:',msg);return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
 window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.reason.message)||e.reason||'');let isWellpath=(typeof state!=='undefined'&&state.active==='wellpath');if(isWellpath||msg.toLowerCase().includes('plotly')||msg.toLowerCase().includes('webgl')||msg.toLowerCase().includes('resizeobserver')){console.warn('Non-fatal plotting promise issue suppressed:',msg);if(e&&e.preventDefault)e.preventDefault();return;}let b=document.getElementById('runtimeError');if(b){b.style.display='block';b.textContent='JavaScript error: '+(msg||'unknown')}});
@@ -91,7 +107,7 @@ function renderDashboard(){
   let general=[['Case',g.caseName||'—',''],['Water depth',g.waterDepth,'m'],['Total depth',td,'mTVD'],['Casing/liner strings',state.strings.length,''],['Sections',state.sections.length,'']];
 
   let rmCard=worstRM?`<div class="metric"><span class="note">Worst riser margin</span><br><b class="${worstRM.Pass==='OK'?'ok':'bad'}">${fmt(worstRM.Margin,3)}</b> SG margin<br><span class="note">${esc(worstRM.Section)} @ ${fmt(worstRM.TVD,0)} mTVD</span></div>`:`<p class="note">No riser margin sections flagged (mark sections "RM" on the Inputs tab).</p>`;
-  let kCard=worstK?`<div class="metric"><span class="note">Worst kick tolerance</span><br><b class="${worstK.Status==='OK'?'ok':'bad'}">${fmt(worstK.KickTolerance_m3,2)}</b> m³ (need ${fmt(worstK.MinimumRequired_m3,2)})<br><span class="note">${esc(worstK.Section)} — ${esc(worstK.Status)}</span></div>`:`<p class="note">No kick tolerance sections (needs a section with hole size &le;17.5in).</p>`;
+  let kCard=worstK?`<div class="metric"><span class="note">Worst kick tolerance</span><br><b class="${worstK.Status==='OK'?'ok':'bad'}">${Number.isFinite(worstK.KickTolerance_m3)?fmt(worstK.KickTolerance_m3,2):'&mdash;'}</b> m³ (need ${fmt(worstK.MinimumRequired_m3,2)})<br><span class="note">${esc(worstK.Section)} — ${esc(worstK.Status)}</span></div>`:`<p class="note">No kick tolerance sections (needs a section with hole size &le;17.5in).</p>`;
   let capCard=`<div class="metric"><span class="note">Total open-hole volume</span><br><b>${fmt(cap.openHole_m3,2)}</b> m³</div><div class="metric"><span class="note">Total casing/liner internal volume</span><br><b>${fmt(cap.internal_m3,2)}</b> m³</div>`;
 
   $('page-dashboard').innerHTML=`<div class="card"><h3>Dashboard</h3><p class="note">At-a-glance summary pulled from the other tabs. Use "Open" on a card to see the full detail.</p><div class="grid3">${general.map(m=>`<div class="metric"><span class="note">${esc(m[0])}</span><br><b>${typeof m[1]==='number'?fmt(m[1],0):esc(m[1])}</b> ${esc(m[2])}</div>`).join('')}</div></div><div class="grid"><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Riser margin<button onclick="show('riser')">Open</button></h3>${rmCard}</div><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Kick tolerance<button onclick="show('kick')">Open</button></h3>${kCard}</div><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Capacity<button onclick="show('capacity')">Open</button></h3><div class="grid3">${capCard}</div></div><div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:10px">Well schematic<button onclick="show('schematic')">Open</button></h3><p class="note">${state.strings.length} strings, deepest shoe ${fmt(deepestShoe,0)} mTVD.</p></div></div>`;
@@ -893,7 +909,7 @@ function renderKick(){let valid=kickSections();$('page-kick').innerHTML=`<div cl
   if(!(s.outer>s.dp))warnings.push(`Drill pipe OD (${fmt(s.dp,3)} in) must be smaller than the open hole diameter (${fmt(s.outer,3)} in).`);
   if(!(s.outer>s.bha))warnings.push(`BHA OD (${fmt(s.bha,3)} in) must be smaller than the open hole diameter (${fmt(s.outer,3)} in).`);
   let invalid=warnings.length>0;
-  let eff=swab?Math.max(0,s.mw-s.swabSG):s.mw,maasp=sec.FromTVD*(s.fg-s.mw)*BAR_PER_M_SG-s.choke-s.safety,kickIntensity=Math.max(0,(s.pp-eff)*sec.ToTVD*BAR_PER_M_SG),avail=Math.max(0,maasp-kickIntensity),denom=Math.max(s.mw*BAR_PER_M_SG-s.gas*BAR_PER_M_SG,.0001),allowed=invalid?NaN:avail/denom,len=Math.max(0,sec.ToMD-sec.FromMD),bhaLen=Math.min(s.bhaLen,len),dpLen=Math.max(0,len-bhaLen),capDP=capLpm(s.outer,s.dp),capBHA=capLpm(s.outer,s.bha),hBHA=Math.min(allowed,bhaLen),hDP=Math.max(0,Math.min(allowed-bhaLen,dpLen)),kt=invalid?NaN:(hBHA*capBHA+hDP*capDP)/1000;return{Scenario:swab?'Swabbed kick':'Normal kick',Section:sec.Section,PP:s.pp,FG:s.fg,Planned_MW:s.mw,Effective_MW:eff,MAASP_net_bar:maasp,Kick_intensity_bar:kickIntensity,Available_shoe_pressure_bar:avail,Allowable_height_m:allowed,KickTolerance_m3:kt,KickTolerance_bbl:kt*BBL,MinimumRequired_m3:s.minKT,Status:invalid?'INVALID INPUT':(kt>=s.minKT?'OK':'LOW'),Warnings:warnings.join(' ')}}function calcKick(swab=false){let sec=kickSections()[n($('ktSec').value)||0];if(!sec)return;saveKick();let r=calculateKick(sec,getKick(sec),swab);let warnBox=$('ktWarning');if(r.Warnings){warnBox.style.display='block';warnBox.textContent='Invalid input - results below are not usable until this is fixed: '+r.Warnings}else{warnBox.style.display='none';warnBox.textContent=''}$('ktMetrics').innerHTML=[['Scenario',r.Scenario,''],['Kick tolerance',r.KickTolerance_m3,'m³'],['Kick tolerance',r.KickTolerance_bbl,'bbl'],['MAASP net',r.MAASP_net_bar,'bar'],['Available shoe pressure',r.Available_shoe_pressure_bar,'bar'],['Result',r.Status,'']].map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b class="${m[1]==='OK'?'ok':(m[1]==='LOW'||m[1]==='INVALID INPUT')?'bad':''}">${typeof m[1]==='number'?fmt(m[1],2):m[1]}</b> ${m[2]}</div>`).join('');$('ktAudit').innerHTML=table([r])}
+  let eff=swab?Math.max(0,s.mw-s.swabSG):s.mw,maasp=sec.FromTVD*(s.fg-s.mw)*BAR_PER_M_SG-s.choke-s.safety,kickIntensity=Math.max(0,(s.pp-eff)*sec.ToTVD*BAR_PER_M_SG),avail=Math.max(0,maasp-kickIntensity),denom=Math.max(s.mw*BAR_PER_M_SG-s.gas*BAR_PER_M_SG,.0001),allowed=invalid?NaN:avail/denom,len=Math.max(0,sec.ToMD-sec.FromMD),bhaLen=Math.min(s.bhaLen,len),dpLen=Math.max(0,len-bhaLen),capDP=capLpm(s.outer,s.dp),capBHA=capLpm(s.outer,s.bha),hBHA=Math.min(allowed,bhaLen),hDP=Math.max(0,Math.min(allowed-bhaLen,dpLen)),kt=invalid?NaN:(hBHA*capBHA+hDP*capDP)/1000;return{Scenario:swab?'Swabbed kick':'Normal kick',Section:sec.Section,PP:s.pp,FG:s.fg,Planned_MW:s.mw,Effective_MW:eff,MAASP_net_bar:maasp,Kick_intensity_bar:kickIntensity,Available_shoe_pressure_bar:avail,Allowable_height_m:allowed,KickTolerance_m3:kt,KickTolerance_bbl:kt*BBL,MinimumRequired_m3:s.minKT,Status:(invalid||!Number.isFinite(kt))?'INVALID INPUT':(kt>=s.minKT?'OK':'LOW'),Warnings:(warnings.concat(!invalid&&!Number.isFinite(kt)?['Result could not be calculated - check the section TVD/MD values and the PP, FG and mud weight inputs.']:[])).join(' ')}}function calcKick(swab=false){let sec=kickSections()[n($('ktSec').value)||0];if(!sec)return;saveKick();let r=calculateKick(sec,getKick(sec),swab);let warnBox=$('ktWarning');if(r.Warnings){warnBox.style.display='block';warnBox.textContent='Invalid input - results below are not usable until this is fixed: '+r.Warnings}else{warnBox.style.display='none';warnBox.textContent=''}$('ktMetrics').innerHTML=[['Scenario',r.Scenario,''],['Kick tolerance',r.KickTolerance_m3,'m³'],['Kick tolerance',r.KickTolerance_bbl,'bbl'],['MAASP net',r.MAASP_net_bar,'bar'],['Available shoe pressure',r.Available_shoe_pressure_bar,'bar'],['Result',r.Status,'']].map(m=>`<div class="metric"><span class="note">${m[0]}</span><br><b class="${m[1]==='OK'?'ok':(m[1]==='LOW'||m[1]==='INVALID INPUT')?'bad':''}">${typeof m[1]==='number'?fmt(m[1],2):m[1]}</b> ${m[2]}</div>`).join('');$('ktAudit').innerHTML=table([r])}
 
 /* NPD / Sodir offset wells: lists nearby Norwegian-shelf wellbores, nearest first, from the
    public Sodir (formerly NPD) FactMaps wellbore layer. Surface-location spacing only - the
@@ -2035,7 +2051,117 @@ function renderTimeDepth(){
   $('page-timeDepth').innerHTML='<div class="card"><h3>Time vs Depth</h3><p class="note">Activity-based time-depth plot. Use Build draft from section table to create rows from the current well sections, then fill in duration days and phases.</p><div class="actions"><button class="dark" onclick="tdBuildFromSections()">Build draft from section table</button><button onclick="tdAddRow()">Add row</button><button onclick="tdClearRows()">Clear rows</button><button class="dark" onclick="tdApply()">Apply table + update plot</button><button onclick="tdDownloadCSV()">Download CSV</button><label style="margin:0"><input type="file" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="tdImportFile(this)"><span style="display:inline-block;border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer">Import CSV/Excel</span></label></div><p id="tdImportStatus" class="note"></p><div class="grid3" style="margin-top:10px"><label>Depth basis<select id="tdBasis" onchange="tdApply()"><option>MD</option><option>TVD</option></select></label><label style="display:flex;align-items:center;gap:8px;margin-top:22px"><input id="tdShoes" type="checkbox" checked style="width:auto" onchange="tdApply()"> Show casing shoes</label></div></div><div id="tdMetrics" class="grid3"></div><div class="card"><h3>Time-depth activity table</h3><div class="table-wrap" id="tdTable"></div></div><div class="card"><h3>Time vs Depth plot</h3><div id="tdPlot" class="plot"></div></div>';
   tdEditTable();drawTimeDepthPlot();
 }
-function renderExport(){$('page-export').innerHTML='<div class="card"><h3>Checks</h3>'+table([{Check:'Upload boxes',Status:'Side by side'},{Check:'Hidden corner smiley',Status:'Added'},{Check:'Wellpath tab',Status:'Restored'},{Check:'Capacity tab',Status:'Restored'},{Check:'Riser plot',Status:'Unchanged SVG path'},{Check:'Gas plot',Status:'Unchanged SVG path'},{Check:'Kick tolerance',Status:'Detailed version'}])+'</div>'}
+/* Design checks: automated sanity checks on the current well data. Each check returns
+   ok / warn / fail plus a plain-language detail, so a missing or inconsistent input is
+   called out here instead of silently producing a plausible-looking number elsewhere.
+   These are consistency checks, not a substitute for engineering review. */
+function runDesignChecks(){
+  let res=[], g=state.general;
+  let add=(group,check,status,detail,tab)=>res.push({group,check,status,detail,tab:tab||''});
+  let nm=s=>s.String||s.Label||'string';
+  let strings=state.strings.filter(s=>Number.isFinite(n(s.ShoeMD))&&n(s.ShoeMD)>0).slice().sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
+  let hasWp=(state.wp||[]).length>1, hasPpfg=(state.ppfg||[]).length>0;
+  let secs=state.sections||[];
+
+  // Inputs
+  add('Inputs','Water depth',n(g.waterDepth)>0?'ok':'fail',n(g.waterDepth)>0?`${fmt(n(g.waterDepth),0)} m`:'Not entered - riser margin and gas migration depend on it.','input');
+  let rkbOk=Number.isFinite(n(g.airGap))&&n(g.swDensity)>0;
+  add('Inputs','Air gap and seawater density',rkbOk?'ok':'warn',rkbOk?`${fmt(n(g.airGap),0)} m air gap, ${fmt(n(g.swDensity),3)} SG seawater`:'Air gap or seawater density is missing.','input');
+  if(!hasWp){
+    add('Inputs','Wellpath survey','warn','No survey loaded - the schematic, TVD conversion and torque & drag fall back to straight-hole assumptions.','input');
+  } else {
+    let mds=state.wp.map(r=>n(r.MD)).filter(Number.isFinite);
+    let asc=mds.every((m,i)=>i===0||m>=mds[i-1]);
+    let surveyMax=Math.max(...mds);
+    let planMax=Math.max(0,...secs.map(s=>n(s.ToMD)||0),...strings.map(s=>n(s.ShoeMD)));
+    let covers=surveyMax>=planMax-1;
+    add('Inputs','Wellpath survey',!asc?'fail':covers?'ok':'warn',!asc?'Survey MD values are not in ascending order.':covers?`${mds.length} stations to ${fmt(surveyMax,0)} mMD`:`Survey ends at ${fmt(surveyMax,0)} mMD, shallower than the planned TD of ${fmt(planMax,0)} mMD - the remainder is extrapolated at the last inclination/azimuth.`,'wellpath');
+  }
+  add('Inputs','Pore pressure / fracture gradient',hasPpfg?'ok':'warn',hasPpfg?`${state.ppfg.length} depth points loaded`:'No PPFG loaded - kick tolerance, riser margin and gas migration use default assumptions.','input');
+
+  // Casing program
+  let orderBad=[];
+  for(let i=1;i<strings.length;i++)if(n(strings[i].OD)>=n(strings[i-1].OD))orderBad.push(`${nm(strings[i])} (${fmt(n(strings[i].OD),3)}") is not smaller than ${nm(strings[i-1])} (${fmt(n(strings[i-1].OD),3)}")`);
+  add('Casing program','Strings step down in size',orderBad.length?'fail':'ok',orderBad.length?orderBad.join('; '):`${strings.length} strings, each smaller than the one above`,'input');
+  let idMissing=[],idBad=[];
+  strings.forEach(s=>{if(!(n(s.ID)>0))idMissing.push(nm(s));else if(n(s.ID)>=n(s.OD))idBad.push(nm(s))});
+  add('Casing program','Inner diameters',idBad.length?'fail':idMissing.length?'warn':'ok',idBad.length?`ID is not smaller than OD for: ${idBad.join(', ')}`:idMissing.length?`No ID entered for: ${idMissing.join(', ')} - capacity and open-hole sizing fall back to estimates.`:'Every string has a valid ID','input');
+  let depthBad=strings.filter(s=>!(n(s.ShoeMD)>n(s.TopMD))).map(nm);
+  add('Casing program','Top above shoe',depthBad.length?'fail':'ok',depthBad.length?`Top MD is missing or not above the shoe for: ${depthBad.join(', ')}`:'Every string has its top above its shoe','input');
+  let cemBad=strings.filter(s=>Number.isFinite(n(s.TopCementMD))&&n(s.TopCementMD)>n(s.ShoeMD)).map(nm);
+  add('Casing program','Cement tops',cemBad.length?'fail':'ok',cemBad.length?`Top of cement is below the shoe for: ${cemBad.join(', ')}`:'No cement top is below its shoe','input');
+  if(hasWp){
+    let off=strings.map(s=>({name:nm(s),d:n(s.ShoeTVD)-mdToTvd(n(s.ShoeMD))})).filter(o=>Number.isFinite(o.d)&&Math.abs(o.d)>2);
+    add('Casing program','Shoe TVD matches survey',off.length?'warn':'ok',off.length?`${off.map(o=>`${o.name}: ${o.d>0?'+':''}${fmt(o.d,1)} m`).join('; ')} (entered TVD minus survey TVD at that MD)`:'Entered shoe TVDs agree with the survey','input');
+  }
+
+  // Hole sections
+  let fitBad=[],fitTight=[];
+  secs.forEach((s,i)=>{
+    let next=strings[i+1]; if(!next||!(n(next.OD)>0)||!(n(s.Hole)>0))return;
+    let clr=n(s.Hole)-n(next.OD), lbl=`${s.Section}" hole / ${nm(next)} (${fmt(n(next.OD),3)}")`;
+    if(clr<=0)fitBad.push(lbl);else if(clr<0.5)fitTight.push(`${lbl}, ${fmt(clr,2)}" clearance`);
+  });
+  add('Hole sections','Casing fits its hole',fitBad.length?'fail':fitTight.length?'warn':'ok',(fitBad.length||fitTight.length)?[fitBad.length?`Hole is not larger than the casing run in it: ${fitBad.join('; ')}.`:'',fitTight.length?`Very tight clearance: ${fitTight.join('; ')}.`:''].filter(Boolean).join(' '):'Every casing/liner has clearance in its hole','input');
+  let gaps=[];
+  for(let i=1;i<secs.length;i++)if(Math.abs(n(secs[i].FromMD)-n(secs[i-1].ToMD))>1)gaps.push(`${secs[i-1].Section}" to ${secs[i].Section}"`);
+  add('Hole sections','Sections are continuous',gaps.length?'warn':'ok',gaps.length?`Gap or overlap between: ${gaps.join(', ')}`:'No gaps or overlaps between sections','input');
+  let lastSec=secs[secs.length-1];
+  if(lastSec&&strings.length){
+    let deepestShoe=n(strings[strings.length-1].ShoeMD), td=n(lastSec.ToMD);
+    let tdOk=td>deepestShoe;
+    let tdDetail=tdOk?`TD ${fmt(td,0)} mMD, ${fmt(td-deepestShoe,0)} m of open hole below the deepest shoe`:`TD (${fmt(td,0)} mMD) is not below the deepest shoe (${fmt(deepestShoe,0)} mMD).`;
+    let tdStatus=tdOk?'ok':'fail';
+    if(tdOk&&hasWp){
+      let surveyMax=Math.max(...state.wp.map(r=>n(r.MD)).filter(Number.isFinite));
+      let d=n(lastSec.ToTVD)-mdToTvd(td);
+      if(td<=surveyMax+1&&Number.isFinite(d)&&Math.abs(d)>5){tdStatus='warn';tdDetail+=` Entered TD TVD (${fmt(n(lastSec.ToTVD),0)}) differs from the survey (${fmt(mdToTvd(td),0)}) by ${fmt(Math.abs(d),0)} m.`}
+    }
+    add('Hole sections','TD below the deepest shoe',tdStatus,tdDetail,'input');
+  }
+
+  // Mud weight window (needs PPFG)
+  if(hasPpfg){
+    let issues=[],status='ok';
+    secs.forEach(s=>{
+      let mw=n(s.MW); if(!(mw>0))return;
+      let pp=interp(state.ppfg,'TVD','PP',n(s.ToTVD)), fg=interp(state.ppfg,'TVD','FG',n(s.FromTVD));
+      if(Number.isFinite(pp)){
+        if(mw<pp){status='fail';issues.push(`${s.Section}": MW ${fmt(mw,2)} is below pore pressure ${fmt(pp,2)} SG at TD`)}
+        else if(mw-pp<0.03){if(status!=='fail')status='warn';issues.push(`${s.Section}": only ${fmt(mw-pp,2)} SG over pore pressure at TD`)}
+      }
+      if(Number.isFinite(fg)){
+        if(mw>=fg){status='fail';issues.push(`${s.Section}": MW ${fmt(mw,2)} is at or above fracture gradient ${fmt(fg,2)} SG at the shoe`)}
+        else if(fg-mw<0.05){if(status!=='fail')status='warn';issues.push(`${s.Section}": only ${fmt(fg-mw,2)} SG below fracture gradient at the shoe`)}
+      }
+    });
+    add('Mud weight window','MW between pore pressure and fracture gradient',status,issues.length?issues.join('; '):'Every section\'s mud weight sits inside its PP-FG window','input');
+  }
+
+  // Well control
+  kickSections().forEach(s=>{
+    let r=calculateKick(s,getKick(s),false), ok=Number.isFinite(r.KickTolerance_m3);
+    add('Well control',`Kick tolerance - ${s.Section}" section`,r.Status==='OK'?'ok':r.Status==='LOW'?'fail':'warn',ok?`${fmt(r.KickTolerance_m3,2)} m³ against ${fmt(r.MinimumRequired_m3,2)} m³ required`:'Could not be calculated - check the kick inputs.','kick');
+  });
+  let rm=rmRows().filter(r=>Number.isFinite(r.Margin));
+  if(!rm.length)add('Well control','Riser margin','warn','No sections are flagged "RM" on the Inputs tab, so riser margin was not assessed.','riser');
+  else{
+    // Below zero is a failure; positive but under ~0.06 SG (about 0.5 ppg, the low end of the
+    // margin the Riser Margin tips panel quotes as typical policy) is flagged for review.
+    let w=rm.slice().sort((a,b)=>a.Margin-b.Margin)[0];
+    add('Well control','Riser margin',w.Margin<0?'fail':w.Margin<0.06?'warn':'ok',`Worst margin ${fmt(w.Margin,3)} SG (${w.Section}" at ${fmt(w.TVD,0)} mTVD)${w.Margin>=0&&w.Margin<0.06?' - thin against the 0.5-1.0 ppg margin commonly required':''}`,'riser');
+  }
+  return res;
+}
+function renderExport(){
+  let res=runDesignChecks(), cnt={ok:0,warn:0,fail:0};
+  res.forEach(r=>cnt[r.status]++);
+  let label={ok:'Pass',warn:'Review',fail:'Fail'};
+  let overall=cnt.fail?'fail':cnt.warn?'warn':'ok';
+  let headline=cnt.fail?`${cnt.fail} check${cnt.fail>1?'s':''} failed`:cnt.warn?`${cnt.warn} item${cnt.warn>1?'s':''} to review`:'All checks passed';
+  let groups=[...new Set(res.map(r=>r.group))];
+  $('page-export').innerHTML=`<div class="card"><h3>Design checks</h3><p class="note">Automated consistency checks on the current well data. They flag missing or contradictory inputs before they turn into a plausible-looking number elsewhere in the app - they do not replace engineering review.</p><div class="check-summary check-${overall}"><span class="pill pill-${overall}">${overall==='ok'?'Pass':overall==='warn'?'Review':'Fail'}</span><b>${headline}</b><span class="note">${cnt.ok} passed &middot; ${cnt.warn} to review &middot; ${cnt.fail} failed</span></div></div>`+groups.map(gr=>`<div class="card"><h3>${esc(gr)}</h3><div class="table-wrap"><table class="check-table"><tbody>${res.filter(r=>r.group===gr).map(r=>`<tr><td class="check-status"><span class="pill pill-${r.status}">${label[r.status]}</span></td><td class="check-name">${esc(r.check)}</td><td class="check-detail">${esc(r.detail)}</td><td class="check-open">${r.tab?`<button onclick="show('${r.tab}')">Open</button>`:''}</td></tr>`).join('')}</tbody></table></div></div>`).join('');
+}
 /* DrillWise v1.6.2 save clear schematic patch applied */
 (function(){
   const SAVE_KEY='DrillWise_saved_well_v1_6_2';
