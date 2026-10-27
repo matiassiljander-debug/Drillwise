@@ -86,13 +86,13 @@ window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.
 const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElementById(id),n=v=>{let x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN},fmt=(v,d=2)=>Number.isFinite(n(v))?n(v).toFixed(d):'',esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
 const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
-const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['npd','03b NPD Offset Wells'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['export','09 Checks']];
+const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['npd','03b NPD Offset Wells'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['cost','08b Time & Cost'],['export','09 Checks']];
 const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],bhaRaw:[],ppfg:[],wp:[],bha:[],strings:[],sections:[],kickSettings:{},ecdSettings:{},tdSettings:{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[],schematicProfileLabelPos:{},schematicProfileLinePos:{},targets:[]};
 const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function seabedTVD(){return (Number.isFinite(n(state.general.waterDepth))?n(state.general.waterDepth):0)+(Number.isFinite(n(state.general.airGap))?n(state.general.airGap):0)}
 function defaults(){let sb=seabedTVD();state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:sb,ShoeTVD:515,TopMD:sb,ShoeMD:515,TopCementMD:sb,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:sb,ShoeTVD:1400,TopMD:sb,ShoeMD:1400,TopCementMD:sb,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:sb,ShoeTVD:2840,TopMD:sb,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}];state.bha=[{Component:'8.5in PDC bit',OD:8.5,ID:0,Length:0.4},{Component:'Mud motor',OD:6.75,ID:3.0,Length:8},{Component:'MWD/LWD',OD:6.75,ID:3.0,Length:9},{Component:'Stabilizer',OD:8.375,ID:3.0,Length:1.5},{Component:'Non-mag drill collar',OD:6.75,ID:2.8125,Length:9},{Component:'HWDP',OD:5,ID:3.0,Length:90}]};defaults();
 function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
-function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,npd:renderNpd,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
+function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,npd:renderNpd,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,cost:renderCost,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
 function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td${typeof r[c]==='number'?' class="num"':''}>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component','Name'].includes(c)?v:n(v))});out.push(o)});return out}
@@ -2228,13 +2228,13 @@ function renderExport(){
   function blankSection(){return {Section:'',Hole:'',FromTVD:'',ToTVD:'',FromMD:'',ToMD:'',MW:'',RM:false};}
   function blankBhaRow(){return {Component:'',OD:'',ID:'',Length:''};}
   function safeRead(){try{if($('caseName'))state.general.caseName=$('caseName').value;if($('waterDepth'))state.general.waterDepth=n($('waterDepth').value);if($('airGap'))state.general.airGap=n($('airGap').value);if($('swDensity'))state.general.swDensity=n($('swDensity').value);if($('requiredOB'))state.general.requiredOB=n($('requiredOB').value);if($('stringsTable'))state.strings=readEdit('stringsTable');if($('sectionsTable'))state.sections=readEdit('sectionsTable');}catch(e){console.warn('v1.6.2 input read skipped',e)}}
-  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),bhaRaw:clone(state.bhaRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),bha:clone(state.bha),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),ecdSettings:clone(state.ecdSettings),tdSettings:clone(state.tdSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos),schematicProfileLinePos:clone(state.schematicProfileLinePos),targets:clone(state.targets),openHoleShapeType:state.openHoleShapeType||null}}
-  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.bhaRaw=obj.bhaRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.bha=obj.bha||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.ecdSettings=obj.ecdSettings||{};state.tdSettings=obj.tdSettings||{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};state.schematicProfileLinePos=obj.schematicProfileLinePos||{};state.targets=obj.targets||[];state.openHoleShapeType=obj.openHoleShapeType||null;render();}
+  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),bhaRaw:clone(state.bhaRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),bha:clone(state.bha),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),ecdSettings:clone(state.ecdSettings),tdSettings:clone(state.tdSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos),schematicProfileLinePos:clone(state.schematicProfileLinePos),targets:clone(state.targets),openHoleShapeType:state.openHoleShapeType||null,timeDepth:clone(state.timeDepth||[]),costEstimate:state.costEstimate?clone(state.costEstimate):null}}
+  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.bhaRaw=obj.bhaRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.bha=obj.bha||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.ecdSettings=obj.ecdSettings||{};state.tdSettings=obj.tdSettings||{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};state.schematicProfileLinePos=obj.schematicProfileLinePos||{};state.targets=obj.targets||[];state.openHoleShapeType=obj.openHoleShapeType||null;state.timeDepth=Array.isArray(obj.timeDepth)?obj.timeDepth:[];state.costEstimate=obj.costEstimate||null;render();}
   window.drillwiseSaveWell=function(){localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));drillwiseSetSaveStatus('Saved current well in this browser.');};
   window.drillwiseLoadWell=function(){let txt=localStorage.getItem(SAVE_KEY);if(!txt){drillwiseSetSaveStatus('No saved well found in this browser.');return;}try{restore(JSON.parse(txt));drillwiseSetSaveStatus('Loaded saved well from this browser.')}catch(e){drillwiseSetSaveStatus('Could not load saved well: '+e.message)}};
   window.drillwiseDownloadWell=function(){let data=JSON.stringify(snapshot(),null,2);let name=(state.general&&state.general.caseName?String(state.general.caseName):'DrillWise_well').replace(/[^a-z0-9_-]+/gi,'_');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);drillwiseSetSaveStatus('Downloaded well JSON.');};
   window.drillwiseImportWell=function(inp){let f=inp&&inp.files&&inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{restore(JSON.parse(String(r.result||'')));drillwiseSetSaveStatus('Imported well JSON: '+f.name)}catch(e){drillwiseSetSaveStatus('Import failed: '+e.message)}};r.readAsText(f);};
-  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=[];state.wpRaw=[];state.bhaRaw=[];state.ppfg=[];state.wp=[];state.bha=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.ecdSettings={};state.tdSettings={dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};state.schematicProfileLinePos={};state.targets=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
+  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.costEstimate=null;state.timeDepth=[];state.ppfgRaw=[];state.wpRaw=[];state.bhaRaw=[];state.ppfg=[];state.wp=[];state.bha=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.ecdSettings={};state.tdSettings={dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};state.schematicProfileLinePos={};state.targets=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
   window.drillwiseAddCasingRow=function(){safeRead();state.strings.push(blankString());renderInput();};
   window.drillwiseAddSectionRow=function(){safeRead();state.sections.push(blankSection());renderInput();};
   window.drillwiseAddBhaRow=function(){state.bha.push(blankBhaRow());renderECD();};
@@ -2244,4 +2244,369 @@ function renderExport(){
   function bind(){let page=$('page-input');if(!page)return;page.querySelectorAll('input:not([type=file]),select').forEach(el=>{if(el.dataset.dwV162Bound)return;el.dataset.dwV162Bound='1';el.addEventListener('change',safeRead);el.addEventListener('blur',safeRead);});}
   if(typeof renderInput==='function'&&!window._dwV162RenderInputWrapped){const old=renderInput;window.renderInput=renderInput=function(){old();addPanel();bind();};window._dwV162RenderInputWrapped=true;}
 })();
+/* ===================================================================================
+   08b Time & Cost estimate (early phase)
+   Standard drilling time & cost build-up:
+     net activity days x phase spread rate (rig rate x FX + spread adder),
+     + NPT / WOW / complexity as % of net days,
+     + phase cost uncertainty as % of (net + NPT + WOW + complexity) cost.
+   Contingency is reported for information only and is not part of the base.
+   Depths, casing strings and drilling days are taken from the rest of DrillWise.
+   =================================================================================== */
+/* No rig rates are built in (rig presets are null, so choosing a rig type leaves your rate alone).
+   The day presets are round illustrative numbers that pre-fill net days when a scope item is
+   chosen - overwrite them per well in 3.1. */
+const CE_PRESETS={
+  rig:{'Semi-sub':null,'Jack-up':null,'Custom':null},
+  slot:{'New well':0,'Deep slot recovery':15,'Shallow slot recovery':20},
+  dataAcq:{'Development':0,'Dry hole':5,'Discovery':10},
+  testing:{'No':0,'Yes':15},
+  completion:{'No':0,'Yes':15},
+  cleanup:{'No':0,'Yes':5},
+  pa:{'No':0,'Yes':5}
+};
+const CE_RATES=[['slot','Slot recovery'],['drilling','Drilling'],['completion','Completion'],['testing','Testing']];
+/* key, label, default spread-rate basis */
+const CE_ACTS=[
+  ['rigMove','Rig move','drilling'],
+  ['prespud','Prespud activities','drilling'],
+  ['slot','Slot recovery','slot'],
+  ['drilling','Drilling','drilling'],
+  ['dataAcq','Data acquisition','drilling'],
+  ['testing','Testing','testing'],
+  ['completion','Completion','completion'],
+  ['cleanup','Clean-up to rig','testing'],
+  ['pa','P&A','drilling'],
+  ['demob','Demob rig','drilling']
+];
+const CE_SCOPE=[['slot','Slot recovery'],['dataAcq','Data acquisition'],['testing','Testing'],['completion','Completion'],['cleanup','Clean-up to rig'],['pa','P&A']];
+
+function ceDefaults(){
+  let d=new Date();
+  return {
+    estClass:'A',spudYear:d.getFullYear()+1,estDate:d.toISOString().slice(0,10),
+    fxUsd:10,fxEur:11,rigType:'Semi-sub',rigRate:0,
+    adders:{slot:0,drilling:0,completion:0,testing:0},
+    startMode:'seabed',startString:'',startManual:'',
+    tdMode:'auto',tdManual:'',
+    drillMode:'benchmark',drillManual:'',
+    mpd:0,mpdSource:'',
+    npt:0,nptSource:'',
+    wow:0,wowSource:'',
+    ci:0,ciSource:'',
+    unc:0,cont:0,
+    wellType:'Development',
+    choice:{slot:'New well',dataAcq:'Development',testing:'No',completion:'No',cleanup:'No',pa:'No'},
+    days:{rigMove:0,prespud:0,slot:0,dataAcq:0,testing:0,completion:0,cleanup:0,pa:0,demob:0},
+    basis:{},
+    phaseY1:'',
+    assumptions:null
+  };
+}
+function ceCfg(){
+  if(!state.costEstimate)state.costEstimate=ceDefaults();
+  let c=state.costEstimate,d=ceDefaults();
+  for(let k in d){if(c[k]===undefined)c[k]=d[k];}
+  ['adders','choice','days'].forEach(k=>{c[k]=Object.assign({},d[k],c[k]||{});});
+  if(!c.basis)c.basis={};
+  return c;
+}
+
+/* ---------- Everything the estimate borrows from the rest of DrillWise ---------- */
+function ceContext(){
+  let g=state.general||{},wd=n(g.waterDepth),ag=n(g.airGap);
+  let fin=v=>Number.isFinite(v);
+  let seabed=(fin(wd)?wd:0)+(fin(ag)?ag:0);
+  let secs=(state.sections||[]).filter(s=>fin(n(s.ToMD))&&n(s.ToMD)>0);
+  let deepSec=secs.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0];
+  let wpMD=(state.wp||[]).map(r=>n(r.MD)).filter(fin);
+  let wpEnd=wpMD.length?Math.max(...wpMD):NaN;
+  let strings=(state.strings||[]).filter(s=>fin(n(s.ShoeMD))&&n(s.ShoeMD)>0).slice().sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
+  let td=(state.timeDepth||[]),sumDays=f=>td.filter(f).reduce((a,r)=>a+(fin(n(r.DurationDays))?n(r.DurationDays):0),0);
+  return {
+    waterDepth:wd,airGap:ag,seabed,hasSeabed:fin(wd)&&wd>0,
+    secTD:deepSec?n(deepSec.ToMD):NaN,secTDtvd:deepSec?n(deepSec.ToTVD):NaN,
+    wpEnd,strings,nStrings:strings.length,nSections:(state.sections||[]).filter(s=>s.Section||s.Hole).length,
+    tvdDrillDays:sumDays(r=>String(r.Phase||'').toLowerCase().includes('drill')),
+    tvdTotalDays:sumDays(()=>true)
+  };
+}
+function ceDepths(c,ctx){
+  let fin=Number.isFinite,td,tdSrc,start,startSrc;
+  let mode=c.tdMode;
+  if(mode==='auto')mode=fin(ctx.secTD)?'sections':fin(ctx.wpEnd)?'wellpath':'manual';
+  if(mode==='sections'){td=ctx.secTD;tdSrc='Deepest section TD (Inputs)';}
+  else if(mode==='wellpath'){td=ctx.wpEnd;tdSrc='End of wellpath survey';}
+  else {td=n(c.tdManual);tdSrc='Manual';}
+  if(c.startMode==='shoe'){let s=ctx.strings.find(x=>(x.String||x.Label)===c.startString)||ctx.strings[0];start=s?n(s.ShoeMD):NaN;startSrc=s?`${s.String||s.Label} shoe (kick-off / sidetrack)`:'No casing shoe available';}
+  else if(c.startMode==='manual'){start=n(c.startManual);startSrc='Manual';}
+  else {start=ctx.seabed;startSrc='Seabed (water depth + air gap)';}
+  let interval=fin(td)&&fin(start)?Math.max(0,td-start):NaN;
+  return {td,tdSrc,start,startSrc,interval};
+}
+
+/* ---------- The calculation (mirrors the Excel template cell by cell) ---------- */
+function ceCompute(c,ctx){
+  let num=v=>{v=n(v);return Number.isFinite(v)?v:0};
+  let rig=num(c.rigRate),fx=num(c.fxUsd);
+  let rates={};CE_RATES.forEach(([k])=>rates[k]=rig*fx+num(c.adders[k])*1e6);
+  let dep=ceDepths(c,ctx);
+  let npt=num(c.npt),wow=num(c.wow),ci=num(c.ci),gross=num(c.mpd);
+  let netMpd=(100-npt-wow)>0?gross/(100-npt-wow)*100:NaN;
+  let drillDays,drillPctBase,drillSrc;
+  if(c.drillMode==='timeDepth'){drillDays=ctx.tvdDrillDays;drillPctBase=drillDays;drillSrc='Sum of drilling-phase days in Time vs Depth';}
+  else if(c.drillMode==='manual'){drillDays=num(c.drillManual);drillPctBase=drillDays;drillSrc='Manual';}
+  else{
+    drillDays=Number.isFinite(dep.interval)&&netMpd>0?dep.interval/netMpd:0;
+    /* As in the template, NPT/WOW/complexity on drilling are applied to the interval at the
+       benchmark m/day (which already includes NPT & WOW), not to the net drilling days. */
+    drillPctBase=Number.isFinite(dep.interval)&&gross>0?dep.interval/gross:0;
+    drillSrc='Drilled interval / net m/day';
+  }
+  let acts=CE_ACTS.map(([k,label,defB])=>{
+    let days=k==='drilling'?drillDays:num(c.days[k]);
+    let basis=c.basis[k]||defB,rate=rates[basis];
+    let pBase=k==='drilling'?drillPctBase:days;
+    let r={key:k,label,basis,rate,days,cost:days*rate/1e6,
+      nptDays:pBase*npt/100,wowDays:pBase*wow/100,ciDays:pBase*ci/100};
+    r.nptCost=r.nptDays*rate/1e6;r.wowCost=r.wowDays*rate/1e6;r.ciCost=r.ciDays*rate/1e6;
+    return r;
+  });
+  let sum=f=>acts.reduce((a,r)=>a+f(r),0);
+  let t={
+    netDays:sum(r=>r.days),netCost:sum(r=>r.cost),
+    nptDays:sum(r=>r.nptDays),nptCost:sum(r=>r.nptCost),
+    wowDays:sum(r=>r.wowDays),wowCost:sum(r=>r.wowCost),
+    ciDays:sum(r=>r.ciDays)
+  };
+  /* Template: complexity cost = total complexity days x drilling spread rate */
+  t.ciCost=t.ciDays*rates.drilling/1e6;
+  t.uncCost=(t.netCost+t.nptCost+t.wowCost+t.ciCost)*num(c.unc)/100;
+  t.budgetDays=t.netDays+t.nptDays+t.wowDays+t.ciDays;
+  t.budgetCost=t.netCost+t.nptCost+t.wowCost+t.ciCost+t.uncCost;
+  t.contCost=t.budgetCost*num(c.cont)/100;
+  let cl=acts.find(r=>r.key==='cleanup');
+  t.cleanupHostSaving=cl.cost*(1+(npt+wow+ci)/100);
+  let y1=n(c.phaseY1);
+  t.phaseY1=Number.isFinite(y1)?y1:t.budgetCost;t.phaseY2=t.budgetCost-t.phaseY1;
+  return {rates,dep,netMpd,drillDays,drillSrc,acts,t};
+}
+
+/* ---------- UI ---------- */
+function ceSet(path,val){let c=ceCfg(),p=path.split('.'),o=c;while(p.length>1)o=o[p.shift()];o[p[0]]=val;}
+function ceGet(path){let o=ceCfg();for(let k of path.split('.'))o=o==null?undefined:o[k];return o;}
+function ceIn(path,opts={}){
+  let v=ceGet(path);
+  return `<input data-ce="${path}" type="${opts.text?'text':'number'}" step="${opts.step||'any'}" value="${esc(v??'')}" ${opts.ph?`placeholder="${esc(opts.ph)}"`:''} oninput="ceOnInput(this)" ${opts.disabled?'disabled':''} ${opts.style?`style="${opts.style}"`:''}>`;
+}
+function ceSel(path,options,onchange){
+  let v=ceGet(path);
+  return `<select data-ce="${path}" onchange="${onchange||'ceOnInput(this)'}">${options.map(o=>{let val=Array.isArray(o)?o[0]:o,lab=Array.isArray(o)?o[1]:o;return `<option value="${esc(val)}" ${String(val)===String(v)?'selected':''}>${esc(lab)}</option>`}).join('')}</select>`;
+}
+function ceOnInput(el){
+  let path=el.dataset.ce,val=el.type==='number'?el.value:el.value;
+  ceSet(path,val);ceUpdate();
+}
+function ceOnRig(el){let c=ceCfg();c.rigType=el.value;let r=CE_PRESETS.rig[el.value];if(r!=null)c.rigRate=r;renderCost();}
+function ceOnChoice(el,key){let c=ceCfg();c.choice[key]=el.value;c.days[key]=CE_PRESETS[key][el.value];renderCost();}
+function ceOnMode(el){ceSet(el.dataset.ce,el.value);renderCost();}
+function ceReset(){if(!confirm('Reset the time & cost estimate to blank defaults? Your entries on this tab will be lost.'))return;state.costEstimate=ceDefaults();renderCost();}
+function ceInsertAssumptions(){let c=ceCfg(),old=new Set(c.autoLines||[]),auto=ceAutoAssumptions();let own=String(c.assumptions||'').split('\n').filter(l=>l.trim()&&!old.has(l));c.autoLines=auto;c.assumptions=auto.concat(own).join('\n');renderCost();}
+
+function ceAutoAssumptions(){
+  let c=ceCfg(),ctx=ceContext(),r=ceCompute(c,ctx),out=[];
+  if(n(c.rigRate)>0)out.push(`${c.rigType==='Custom'?'Rig':c.rigType} at ${fmt(c.rigRate,0)} USD/day, all-year operation (benchmark m/day, NPT & WOW)`);
+  if(ctx.hasSeabed)out.push(`Water depth ${fmt(ctx.waterDepth,0)} m, air gap ${fmt(ctx.airGap,0)} m`);
+  if(Number.isFinite(r.dep.td))out.push(`TD ${fmt(r.dep.td,0)} m MD${Number.isFinite(ctx.secTDtvd)&&c.tdMode!=='wellpath'&&c.tdMode!=='manual'?` / ${fmt(ctx.secTDtvd,0)} m TVD`:''}`);
+  if(Number.isFinite(r.dep.interval)&&c.drillMode==='benchmark')out.push(`Drilled interval ${fmt(r.dep.interval,0)} m from ${fmt(r.dep.start,0)} m MD (${r.dep.startSrc.toLowerCase()})`);
+  if(ctx.nStrings)out.push(`${ctx.nStrings} casing/liner strings: ${ctx.strings.map(s=>s.String||s.Label).filter(Boolean).join(', ')}`);
+  out.push(`Slot recovery: ${c.choice.slot.toLowerCase()}; data acquisition: ${c.choice.dataAcq.toLowerCase()}`);
+  out.push(`Completion: ${c.choice.completion}; clean-up to rig: ${c.choice.cleanup}; testing: ${c.choice.testing}; P&A: ${c.choice.pa}`);
+  return out;
+}
+
+function renderCost(){
+  let c=ceCfg();
+  if(c.assumptions==null){c.autoLines=ceAutoAssumptions();c.assumptions=c.autoLines.join('\n');}
+  let ctx=ceContext();
+  let stringOpts=ctx.strings.length?ctx.strings.map(s=>{let nm=s.String||s.Label||'String';return [nm,`${nm} shoe (${fmt(s.ShoeMD,0)} m MD)`]}):[['','No casing shoes entered']];
+  let rateRows=CE_RATES.map(([k,lab])=>`<tr><td>${lab}</td><td>${ceIn('adders.'+k,{step:'0.1',style:'max-width:110px'})}</td><td class="num" id="ce_rate_${k}"></td></tr>`).join('');
+  let actRows=CE_ACTS.map(([k,lab,defB])=>{
+    if(!c.basis[k])c.basis[k]=defB;
+    let daysCell=k==='drilling'?`<span id="ce_drillDays" style="font-weight:700"></span><div class="note" id="ce_drillSrc" style="font-size:11px"></div>`:ceIn('days.'+k,{step:'0.01',style:'max-width:100px'});
+    return `<tr><td><b>${lab}</b></td><td>${ceSel('basis.'+k,CE_RATES)}</td><td>${daysCell}</td><td class="num" id="ce_act_rate_${k}"></td><td class="num" id="ce_act_cost_${k}"></td><td class="num" id="ce_act_npt_${k}"></td><td class="num" id="ce_act_wow_${k}"></td><td class="num" id="ce_act_ci_${k}"></td></tr>`;
+  }).join('');
+  let scopeRows=CE_SCOPE.map(([k,lab])=>`<label>${lab}<select onchange="ceOnChoice(this,'${k}')">${Object.keys(CE_PRESETS[k]).map(o=>`<option ${c.choice[k]===o?'selected':''}>${o}</option>`).join('')}</select></label>`).join('');
+  let srcRow=(lab,valPath,unit,srcPath,step)=>`<tr><td>${lab}</td><td>${ceIn(valPath,{step:step||'0.1',style:'max-width:110px'})}</td><td>${unit}</td><td>${ceIn(srcPath,{text:true,ph:'Source / reference'})}</td></tr>`;
+
+  let chap=(num,title,sub)=>`<div class="ce-chap"><span class="ce-chap-num">${num}</span><div><h2>${title}</h2><p>${sub}</p></div></div>`;
+  let h=(num,title)=>`<h3 class="ce-h"><span>${num}</span>${title}</h3>`;
+  $('page-cost').innerHTML=`<style>
+.ce-chap{display:flex;align-items:center;gap:14px;margin:30px 2px 12px;padding-bottom:10px;border-bottom:2px solid var(--blue)}
+.ce-chap h2{margin:0;font-size:20px;font-weight:700;color:var(--blue);letter-spacing:-.01em}
+.ce-chap p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.ce-chap-num{flex:none;width:34px;height:34px;border-radius:50%;background:var(--blue);color:white;display:grid;place-items:center;font-weight:700;font-size:16px}
+.ce-h{display:flex;align-items:baseline;gap:8px}
+.ce-h span{color:var(--cyan);font-weight:700;font-size:13px;min-width:24px}
+.ce-in{border-left:4px solid var(--cyan)}
+.ce-out{border-left:4px solid var(--blue);background:#f7fbfd}
+.ce-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-left:auto}
+.ce-tag-in{background:#e3f6fa;color:#006f88}.ce-tag-out{background:#e2ebf1;color:var(--blue)}
+.ce-kpi-main{background:var(--blue)!important;border-color:var(--blue)!important;color:white}
+.ce-kpi-main .note{color:#bfe3ee!important}
+.ce-kpi-main b,.ce-kpi-main{color:white!important}
+.ce-sum td{padding:7px 10px}
+.ce-sum .ce-sub td:first-child{padding-left:28px;color:#35505f}
+.ce-sum .ce-sub td:first-child::before{content:'+ ';color:var(--muted)}
+.ce-sum .ce-net td{font-weight:700;border-top:1px solid var(--line)}
+.ce-sum .ce-budget td{font-weight:700;background:var(--blue);color:white}
+.ce-sum .ce-cont td{color:var(--muted);font-style:italic;border-top:1px dashed var(--line)}
+.ce-legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin:2px 0 8px}
+.ce-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+</style>
+<div class="card"><h3 style="font-size:22px;margin-bottom:4px">Time &amp; Cost Estimate</h3>
+<p class="note">Early-phase time and cost estimate. Net activity days &times; phase spread rate, plus NPT, WOW and complexity as a percentage of net days, plus phase cost uncertainty. Contingency is shown for information only and is not in the base. Depths, casing strings and drilling days come from the other tabs, so change them there and this estimate follows.</p>
+<p class="note" style="background:#fffaf0;border:1px solid #f3dc9c;border-radius:10px;padding:8px 12px"><b>Nothing is pre-filled.</b> Enter your own rig rate, spread adders and benchmark values in section 2; they are saved with the well, not shared. Choosing a scope item applies a round, illustrative day count that you can overwrite in 3.1.</p>
+<div class="grid3" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+<label>Well / case<input value="${esc((state.general||{}).caseName||'')}" disabled title="Set on 01 Inputs"></label>
+<label>Estimate class${ceSel('estClass',['A','B','C','D','E'])}</label>
+<label>Planned spud (year)${ceIn('spudYear',{step:'1'})}</label>
+<label>Estimate date${ceIn('estDate',{text:true})}</label>
+</div>
+<div id="ce_metrics" class="grid3" style="margin-top:12px;grid-template-columns:repeat(4,minmax(0,1fr))"></div>
+<div class="actions"><button onclick="renderCost()">Refresh from well data</button><button onclick="ceDownloadCSV()">Download CSV</button><button onclick="ceReset()">Reset to blank defaults</button></div>
+</div>
+
+${chap(1,'Well basis','Pulled automatically from the other tabs')}
+<div class="card ce-out"><h3 class="ce-h"><span>1.1</span>Well data used<span class="ce-tag ce-tag-out">From DrillWise</span></h3><p class="note">Use the Open buttons to fix anything missing at the source.</p><div class="table-wrap" id="ce_context"></div></div>
+
+${chap(2,'Estimate inputs','Rates, performance benchmarks and scope you set')}
+<div class="grid">
+<div class="card ce-in"><h3 class="ce-h"><span>2.1</span>Rig, spread &amp; currency<span class="ce-tag ce-tag-in">Input</span></h3>
+<div class="grid3">
+<label>Rig type<select onchange="ceOnRig(this)">${Object.keys(CE_PRESETS.rig).map(o=>`<option ${c.rigType===o?'selected':''}>${o}</option>`).join('')}</select></label>
+<label>Rig rate (USD/day)${ceIn('rigRate',{step:'1000'})}</label>
+<label>Well type${ceSel('wellType',['Development','Exploration'])}</label>
+<label>FX NOK/USD${ceIn('fxUsd',{step:'0.01'})}</label>
+<label>FX NOK/EUR${ceIn('fxEur',{step:'0.01'})}</label>
+</div>
+<p class="note" style="margin-top:10px">Spread rate = rig rate &times; FX + spread adder (all other daily costs for that phase). FX rates: finance to advise.</p>
+<div class="table-wrap"><table><thead><tr><th>Phase spread</th><th>Adder (MNOK/day)</th><th class="num">Spread rate (MNOK/day)</th></tr></thead><tbody>${rateRows}</tbody></table></div>
+</div>
+
+<div class="card ce-in"><h3 class="ce-h"><span>2.2</span>Drilling performance<span class="ce-tag ce-tag-in">Input</span></h3>
+<div class="grid3">
+<label>TD from${ceSel('tdMode',[['auto','Auto (sections, else wellpath)'],['sections','Deepest section TD'],['wellpath','End of wellpath'],['manual','Manual']],'ceOnMode(this)')}</label>
+<label>Manual TD (m MD)${ceIn('tdManual',{disabled:c.tdMode!=='manual'})}</label>
+<span></span>
+<label>Interval starts at${ceSel('startMode',[['seabed','Seabed (WD + air gap)'],['shoe','Casing shoe (kick-off / sidetrack)'],['manual','Manual']],'ceOnMode(this)')}</label>
+${c.startMode==='shoe'?`<label>Casing shoe${ceSel('startString',stringOpts)}</label>`:`<label>Manual start (m MD)${ceIn('startManual',{disabled:c.startMode!=='manual'})}</label>`}
+<span></span>
+<label>Drilling days from${ceSel('drillMode',[['benchmark','Benchmark m/day'],['timeDepth','Time vs Depth table'],['manual','Manual']],'ceOnMode(this)')}</label>
+${c.drillMode==='manual'?`<label>Manual drilling days${ceIn('drillManual',{step:'0.1'})}</label>`:'<span></span>'}
+</div>
+<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Parameter</th><th>Value</th><th>Unit</th><th>Source / reference</th></tr></thead><tbody>
+${srcRow('m/day dry hole, excl. C&amp;L, incl. NPT &amp; WOW','mpd','m/day','mpdSource','1')}
+${srcRow('P50 NPT','npt','%','nptSource')}
+${srcRow('P50 WOW (all year)','wow','%','wowSource')}
+<tr><td>m/day dry hole, excl. NPT &amp; WOW</td><td class="num" id="ce_netMpd" style="font-weight:700"></td><td>m/day</td><td class="note">Calculated</td></tr>
+${srcRow('Complexity index','ci','%','ciSource')}
+<tr><td>Phase cost uncertainty</td><td>${ceIn('unc',{step:'0.5',style:'max-width:110px'})}</td><td>%</td><td class="note">Agree with your cost control lead</td></tr>
+<tr><td>Contingency (not in base)</td><td>${ceIn('cont',{step:'0.5',style:'max-width:110px'})}</td><td>%</td><td class="note">For information, suggested to the project</td></tr>
+</tbody></table></div>
+<p class="note" id="ce_stringsNote"></p>
+</div>
+</div>
+
+<div class="card ce-in"><h3 class="ce-h"><span>2.3</span>Scope<span class="ce-tag ce-tag-in">Input</span></h3><p class="note">Each choice sets the default net days for that activity. You can still overwrite the days in 3.1.</p><div class="grid3">${scopeRows}</div></div>
+
+${chap(3,'Time &amp; cost build-up','Days and cost per activity, then the allowances on top')}
+<div class="card ce-out"><h3 class="ce-h"><span>3.1</span>Activity build-up<span class="ce-tag ce-tag-out">Calculated</span></h3>
+<p class="note">Net days and spread-rate basis are editable; everything else is calculated.</p>
+<div class="table-wrap" style="max-height:none"><table><thead><tr><th>Activity</th><th>Spread rate basis</th><th>Net days</th><th class="num">Rate (MNOK/d)</th><th class="num">Net cost (MNOK)</th><th class="num">NPT days</th><th class="num">WOW days</th><th class="num">Complexity days</th></tr></thead><tbody>${actRows}</tbody></table></div>
+</div>
+<div class="card ce-out"><h3 class="ce-h"><span>3.2</span>Budget summary<span class="ce-tag ce-tag-out">Calculated</span></h3>
+<div class="table-wrap" id="ce_summary"></div>
+</div>
+
+${chap(4,'Results &amp; reporting','Breakdown, phasing, opportunities and assumptions')}
+<div class="grid">
+<div class="card ce-out"><h3 class="ce-h"><span>4.1</span>Cost by category</h3><div id="ce_chart"></div></div>
+<div class="card ce-out"><h3 class="ce-h"><span>4.2</span>Cost phasing &amp; opportunities</h3>
+<div class="grid3"><label>Spent in <span id="ce_y1lab"></span> (MNOK)${ceIn('phaseY1',{step:'1'})}</label><div class="metric"><span class="note">Remainder in <span id="ce_y2lab"></span></span><br><b id="ce_y2"></b> MNOK</div></div>
+<p class="note">Leave the first year blank to put the whole budget in the spud year.</p>
+<div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>Opportunity</th><th class="num">MNOK</th></tr></thead><tbody><tr><td>Clean-up to host instead of rig (clean-up cost incl. NPT, WOW &amp; complexity)</td><td class="num" id="ce_oppCleanup"></td></tr></tbody></table></div>
+</div>
+</div>
+
+<div class="card ce-in"><h3 class="ce-h"><span>4.3</span>Assumptions<span class="ce-tag ce-tag-in">Input</span></h3><p class="note">Free text, saved with the well. The button refreshes the lines generated from DrillWise data and keeps anything you have typed yourself.</p>
+<textarea data-ce="assumptions" oninput="ceOnInput(this)" rows="9" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:11px;padding:10px;background:white">${esc(c.assumptions)}</textarea>
+<div class="actions"><button onclick="ceInsertAssumptions()">Update well-data assumptions</button></div></div>`;
+  ceUpdate();
+}
+
+function ceUpdate(){
+  let c=ceCfg(),ctx=ceContext(),r=ceCompute(c,ctx),t=r.t,m=v=>fmt(v,1),d=v=>fmt(v,2),set=(id,h)=>{let e=$(id);if(e)e.innerHTML=h};
+  CE_RATES.forEach(([k])=>set('ce_rate_'+k,fmt(r.rates[k]/1e6,2)));
+  set('ce_netMpd',fmt(r.netMpd,1));
+  r.acts.forEach(a=>{set('ce_act_rate_'+a.key,fmt(a.rate/1e6,2));set('ce_act_cost_'+a.key,m(a.cost));set('ce_act_npt_'+a.key,d(a.nptDays));set('ce_act_wow_'+a.key,d(a.wowDays));set('ce_act_ci_'+a.key,d(a.ciDays));});
+  set('ce_drillDays',d(r.drillDays)+' d');set('ce_drillSrc',esc(r.drillSrc));
+  /* metrics */
+  set('ce_metrics',[['Budget time',fmt(t.budgetDays,1),'days'],['Budget cost (base)',fmt(t.budgetCost,0),'MNOK'],[`Contingency ${fmt(c.cont,0)} % (info)`,fmt(t.contCost,0),'MNOK'],['Base + contingency',fmt(t.budgetCost+t.contCost,0),'MNOK']].map((x,i)=>`<div class="metric${i===1?' ce-kpi-main':''}"><span class="note">${x[0]}</span><br><b style="font-size:22px">${x[1]}</b> ${x[2]}</div>`).join(''));
+  /* summary like the Excel block */
+  let srow=(lab,days,cost,cls)=>`<tr class="${cls||'ce-sub'}"><td>${lab}</td><td class="num">${days}</td><td class="num">${cost}</td></tr>`;
+  set('ce_summary',`<table class="ce-sum"><thead><tr><th>Time &amp; cost estimate</th><th class="num">Time (days)</th><th class="num">Cost (MNOK)</th></tr></thead><tbody>
+${srow('Total net (sum of 3.1)',d(t.netDays),m(t.netCost),'ce-net')}
+${srow(`NPT (${fmt(c.npt,1)} %)`,d(t.nptDays),m(t.nptCost))}
+${srow(`WOW (${fmt(c.wow,1)} %)`,d(t.wowDays),m(t.wowCost))}
+${srow(`Complexity index (${fmt(c.ci,1)} %) <span class="note">- costed at drilling spread rate</span>`,d(t.ciDays),m(t.ciCost))}
+${srow(`Cost phase uncertainty (${fmt(c.unc,1)} %)`,'-',m(t.uncCost))}
+${srow('Budget time / cost',d(t.budgetDays),m(t.budgetCost),'ce-budget')}
+${srow(`Contingency (${fmt(c.cont,1)} %, not included in base)`,'-',m(t.contCost),'ce-cont')}
+</tbody></table>`);
+  /* context */
+  let dep=r.dep,ok=v=>Number.isFinite(v)&&v>0,btn=tab=>`<button onclick="show('${tab}')">Open</button>`;
+  let crow=(lab,val,note,tab,good)=>`<tr><td><span class="pill pill-${good?'ok':'warn'}">${good?'OK':'Check'}</span></td><td><b>${lab}</b></td><td>${val}</td><td class="note">${note}</td><td style="text-align:right">${tab?btn(tab):''}</td></tr>`;
+  set('ce_context',`<table class="check-table"><tbody>
+${crow('Seabed (RKB)',ctx.hasSeabed?fmt(ctx.seabed,0)+' m':'-',ctx.hasSeabed?`Water depth ${fmt(ctx.waterDepth,0)} m + air gap ${fmt(ctx.airGap,0)} m`:'Water depth not entered','input',ctx.hasSeabed)}
+${crow('TD',ok(dep.td)?fmt(dep.td,0)+' m MD':'-',esc(dep.tdSrc)+(ok(ctx.wpEnd)&&ok(ctx.secTD)&&Math.abs(ctx.wpEnd-ctx.secTD)>5?` - wellpath ends at ${fmt(ctx.wpEnd,0)} m MD, sections at ${fmt(ctx.secTD,0)} m MD`:''),'input',ok(dep.td))}
+${crow('Start of drilled interval',Number.isFinite(dep.start)?fmt(dep.start,0)+' m MD':'-',esc(dep.startSrc),'input',Number.isFinite(dep.start))}
+${crow('Drilled interval',ok(dep.interval)?fmt(dep.interval,0)+' m':'-',c.drillMode==='benchmark'?`Drilling ${fmt(r.drillDays,1)} net days at ${fmt(r.netMpd,1)} m/day`:'Not used - drilling days come from '+(c.drillMode==='timeDepth'?'Time vs Depth':'manual entry'),'',ok(dep.interval)||c.drillMode!=='benchmark')}
+${crow('Casing / liner strings',String(ctx.nStrings),ctx.nStrings?esc(ctx.strings.map(s=>`${s.String||s.Label} @ ${fmt(s.ShoeMD,0)} m`).join(', ')):'No casing shoes entered','input',ctx.nStrings>0)}
+${crow('Time vs Depth',ctx.tvdTotalDays>0?fmt(ctx.tvdDrillDays,1)+' drilling days':'-',ctx.tvdTotalDays>0?`${fmt(ctx.tvdTotalDays,1)} days in total in the activity table${c.drillMode==='benchmark'?` - benchmark gives ${fmt(r.drillDays,1)} net drilling days`:''}`:'No durations entered (only needed if drilling days come from Time vs Depth)','timeDepth',ctx.tvdTotalDays>0||c.drillMode!=='timeDepth')}
+</tbody></table>`);
+  let bm=(String(c.mpdSource).match(/(\d+)\s*strings?/i)||[])[1];
+  set('ce_stringsNote',ctx.nStrings?`This well has ${ctx.nStrings} casing/liner strings${bm&&+bm!==ctx.nStrings?` - the benchmark is for ${bm}-string wells, so check it is representative.`:'.'}`:'');
+  /* phasing */
+  let y=parseInt(c.spudYear)||new Date().getFullYear()+1;
+  set('ce_y1lab',String(y));set('ce_y2lab',String(y+1));set('ce_y2',fmt(t.phaseY2,0));
+  set('ce_oppCleanup',m(t.cleanupHostSaving));
+  ceChart(r);
+}
+
+function ceChart(r){
+  const CA='#1d6a96',CB='#e0892c';let t=r.t,items=r.acts.filter(a=>a.cost>0.0001).map(a=>[a.label,a.cost,CA]).concat([['NPT',t.nptCost,CB],['WOW',t.wowCost,CB],['Complexity',t.ciCost,CB],['Phase uncertainty',t.uncCost,CB]]).filter(x=>x[1]>0.0001);
+  if(!items.length){$('ce_chart').innerHTML='<p class="note">No cost yet.</p>';return;}
+  let W=640,rowH=30,L=150,R=80,T=10,H=T+items.length*rowH+30,max=Math.max(...items.map(x=>x[1])),w=W-L-R;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:white;display:block" xmlns="http://www.w3.org/2000/svg">`;
+  items.forEach((x,i)=>{let y=T+i*rowH,bw=Math.max(1,x[1]/max*w);svg+=`<text x="${L-8}" y="${y+19}" text-anchor="end" font-family="Segoe UI" font-size="12" fill="#102a3a">${esc(x[0])}</text><rect x="${L}" y="${y+5}" width="${bw}" height="${rowH-10}" rx="4" fill="${x[2]}" data-tip="${esc(x[0]+': '+fmt(x[1],1)+' MNOK ('+fmt(x[1]/t.budgetCost*100,1)+' % of budget)')}" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><text x="${L+bw+6}" y="${y+19}" font-family="Segoe UI" font-size="12" fill="#607987">${fmt(x[1],0)}</text>`;});
+  svg+=`<text x="${L}" y="${H-8}" font-family="Segoe UI" font-size="11" fill="#607987">MNOK - total budget ${fmt(t.budgetCost,0)} MNOK</text></svg>`;
+  $('ce_chart').innerHTML=`<div class="ce-legend"><span><i style="background:${CA}"></i>Activities (net)</span><span><i style="background:${CB}"></i>Allowances</span></div>`+svg;
+}
+
+function ceDownloadCSV(){
+  let c=ceCfg(),ctx=ceContext(),r=ceCompute(c,ctx),t=r.t,rows=[];
+  let q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  rows.push(['Time & cost estimate',(state.general||{}).caseName||'']);
+  rows.push(['Estimate class',c.estClass],['Planned spud',c.spudYear],['Estimate date',c.estDate],['FX NOK/USD',c.fxUsd],['FX NOK/EUR',c.fxEur],['Rig',c.rigType],['Rig rate USD/day',c.rigRate]);
+  CE_RATES.forEach(([k,l])=>rows.push([`Spread rate NOK/day - ${l}`,Math.round(r.rates[k])]));
+  rows.push(['TD m MD',fmt(r.dep.td,0)],['Interval start m MD',fmt(r.dep.start,0)],['Drilled interval m',fmt(r.dep.interval,0)],['m/day incl. NPT & WOW',c.mpd],['P50 NPT %',c.npt],['P50 WOW %',c.wow],['m/day excl. NPT & WOW',fmt(r.netMpd,2)],['Complexity index %',c.ci],['Phase cost uncertainty %',c.unc],['Contingency %',c.cont],[]);
+  rows.push(['Activity','Spread basis','Net days','Net cost MNOK','NPT days','NPT MNOK','WOW days','WOW MNOK','Complexity days']);
+  r.acts.forEach(a=>rows.push([a.label,a.basis,fmt(a.days,2),fmt(a.cost,2),fmt(a.nptDays,2),fmt(a.nptCost,2),fmt(a.wowDays,2),fmt(a.wowCost,2),fmt(a.ciDays,2)]));
+  rows.push([],['Summary','Days','MNOK'],['Total net',fmt(t.netDays,2),fmt(t.netCost,2)],['NPT',fmt(t.nptDays,2),fmt(t.nptCost,2)],['WOW',fmt(t.wowDays,2),fmt(t.wowCost,2)],['Complexity index',fmt(t.ciDays,2),fmt(t.ciCost,2)],['Cost phase uncertainty','',fmt(t.uncCost,2)],['Budget time / cost',fmt(t.budgetDays,2),fmt(t.budgetCost,2)],['Contingency (not in base)','',fmt(t.contCost,2)],[]);
+  rows.push(['Assumptions']);String(c.assumptions||'').split('\n').filter(s=>s.trim()).forEach(s=>rows.push([s]));
+  let csv=rows.map(r=>r.map(q).join(',')).join('\n');
+  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=((state.general&&state.general.caseName)||'DrillWise')+'_time_cost_estimate.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+
 if(!state.timeDepth)state.timeDepth=[];render();</script><button id="cornerSmiley" title="Click for a drilling joke" onclick="newDrillingJoke()">🙂</button><div id="cornerJoke"></div><div id="plotTooltip" class="plot-tooltip"></div></body></html>
