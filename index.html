@@ -563,6 +563,50 @@ function profileBandPath(center,offA,offB){
   let sideB=pts.map(p=>({x:p.x+p.nx*offB,y:p.y+p.ny*offB}));
   return 'M'+sideA.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' L'+sideB.slice().reverse().map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+' Z';
 }
+function profileRoundedCenter(wps,R,firstNorm){
+  // Straight runs joined by smooth circular bends, as points that each carry the perpendicular normal
+  // for offsetting the two walls. A bend of radius R is cut into every interior corner (the radius
+  // shrinks if the neighbouring runs are too short to hold it), so there is no sharp corner for the
+  // walls to kink at - offsetting a single smooth bend can never flip or cross as long as R exceeds
+  // the half-width, which the caller guarantees. The first run reuses the casing's own normal when it
+  // continues in the casing's direction (within ~30 degrees), so its walls start exactly on the pipe wall.
+  let out=[],cum=0;
+  let add=(x,y,nx,ny)=>{if(out.length){let q=out[out.length-1];cum+=Math.hypot(x-q.x,y-q.y)}out.push({x,y,md:cum,nx,ny})};
+  let seg=[];
+  for(let i=0;i<wps.length-1;i++){let dx=wps[i+1].x-wps[i].x,dy=wps[i+1].y-wps[i].y,l=Math.hypot(dx,dy)||1;seg.push({a:wps[i],l,tx:dx/l,ty:dy/l})}
+  let trim=[0],rad=[0];
+  for(let i=1;i<wps.length-1;i++){
+    let A=seg[i-1],B=seg[i],th=Math.acos(Math.max(-1,Math.min(1,A.tx*B.tx+A.ty*B.ty))),tn=Math.tan(th/2);
+    if(th<0.02||th>3){trim.push(0);rad.push(0);continue}
+    // The first and last runs may give up nearly all their length to the bend (the arc can start right at
+    // the shoe, which is still tangent to the casing); a run between two bends keeps room for both.
+    let t=Math.min(R*tn,(i-1===0?0.95:0.45)*A.l,(i===seg.length-1?0.95:0.45)*B.l);trim.push(t);rad.push(t/tn);
+  }
+  trim.push(0);
+  let bends=[];
+  for(let i=0;i<seg.length;i++){
+    let S=seg[i],s0=i>0?trim[i]:0,s1=trim[i+1];
+    let ax=S.a.x+S.tx*s0,ay=S.a.y+S.ty*s0,L=S.l-s0-s1;
+    let aligned=i===0&&firstNorm&&(S.tx*firstNorm.ny-S.ty*firstNorm.nx)>=0.85;
+    let nx=aligned?firstNorm.nx:-S.ty,ny=aligned?firstNorm.ny:S.tx;
+    let n=Math.max(1,Math.ceil(L/3));
+    for(let k=(i===0?0:1);k<=n;k++)add(ax+S.tx*L*k/n,ay+S.ty*L*k/n,nx,ny);
+    if(i<seg.length-1&&trim[i+1]>0){
+      let B=seg[i+1],th=Math.acos(Math.max(-1,Math.min(1,S.tx*B.tx+S.ty*B.ty))),sg=(S.tx*B.ty-S.ty*B.tx)>=0?1:-1,r=rad[i+1];
+      let sx=ax+S.tx*L,sy=ay+S.ty*L,cx=sx+sg*(-S.ty)*r,cy=sy+sg*S.tx*r,rx=sx-cx,ry=sy-cy;
+      let m=Math.max(4,Math.ceil(r*th/3)),startMd=out[out.length-1].md;
+      for(let k=1;k<=m;k++){
+        let ph=sg*th*k/m,cs=Math.cos(ph),sn=Math.sin(ph),ty=S.tx*sn+S.ty*cs,tx=S.tx*cs-S.ty*sn;
+        add(cx+rx*cs-ry*sn,cy+rx*sn+ry*cs,-ty,tx);
+      }
+      bends.push([startMd,out[out.length-1].md]);
+    }
+  }
+  // The inside wall of a bend is shorter than the outside one but the wave is spaced for the centreline,
+  // so it crowds there. Calm the wave through each bend (full strength again 24px beyond it).
+  out.forEach(pt=>{let d=Infinity;bends.forEach(([a,b])=>{d=Math.min(d,pt.md<a?a-pt.md:pt.md>b?pt.md-b:0)});pt.amp=bends.length?0.4+0.6*Math.min(1,d/24):1});
+  return out;
+}
 function profileWavyPath(center,radius,sign,periodMd){
   // Offset along each point's own PER-SEGMENT perpendicular normal (nx,ny, constant within
   // that straight segment), not a single global convention - every open-hole centerline is
@@ -571,8 +615,8 @@ function profileWavyPath(center,radius,sign,periodMd){
   // offset would. This also means the line lands exactly on the shoe's own casing wall
   // (whose normal it reuses for the first segment).
   let mdFrom=center[0]?center[0].md:0;
-  return 'M'+center.filter(p=>p.skip!==sign).map(p=>{
-    let wob=Math.sin((p.md-mdFrom)/Math.max(20,periodMd)*2*Math.PI)*Math.min(6,radius*0.22)*(p.taper===undefined?1:p.taper);
+  return 'M'+center.map(p=>{
+    let wob=Math.sin((p.md-mdFrom)/Math.max(20,periodMd)*2*Math.PI)*Math.min(6,radius*0.22)*(p.amp===undefined?1:p.amp);
     let off=sign*(radius+wob);
     let nx=p.nx!==undefined?p.nx:0, ny=p.ny!==undefined?p.ny:1;
     return `${(p.x+nx*off).toFixed(1)},${(p.y+ny*off).toFixed(1)}`;
@@ -703,7 +747,7 @@ function drawSchematicProfile(){
   let rows=vsRows();
   let host=$('schematicProfilePlot');
   if(rows.length<2){host.innerHTML='<p class="note">Upload a wellpath/survey on the Inputs tab to draw the profile schematic.</p>';return}
-  let W=1000,H=1360,T=130,B=50,L=330,R=340,plotW=W-L-R,plotH=H-T-B;
+  let W=1000,H=1400,T=130,B=90,L=330,R=340,plotW=W-L-R,plotH=H-T-B;
   let mdMax=Math.max(rows[rows.length-1].MD,...state.strings.map(s=>n(s.ShoeMD)||0),...state.sections.map(s=>n(s.ToMD)||0));
   let tdTVD=Math.max(maxDepth(),rows[rows.length-1].TVD);
   let rawHdMax=Math.max(1,...rows.map(r=>r.HD),...state.strings.map(s=>{let v=vsAt(rows,n(s.ShoeMD));return v?v.HD:0}));
@@ -878,14 +922,15 @@ function drawSchematicProfile(){
     if(bucket==='vertical'){
       waypoints=[shoePx,{x:shoePx.x,y:Y(tdTVD)}];
     }else if(bucket==='horizontal'){
-      // A short run out of the shoe in the casing's own direction, then a turn into the horizontal
-      // run, which sits at TD depth (kept within a sensible drop below the shoe). Starting flat at the
-      // shoe's own height instead made the band float across the casing instead of growing out of it.
+      // A short run out of the shoe in the casing's own direction, then a smooth bend into the horizontal
+      // run, which sits at TD depth (kept within a sensible drop below the shoe - at least enough to hold
+      // the bend). Starting flat at the shoe's own height made the band float across the casing instead
+      // of growing out of it.
       let st=shoeNormP?{x:shoeNormP.ny,y:-shoeNormP.nx}:{x:0,y:1};
       if(st.y<0.3){
         waypoints=[shoePx,{x:flatEndX,y:shoePx.y}];
       }else{
-        let lateralY=Math.min(Math.max(Y(tdTVD),shoePx.y+1.2*openHalf),shoePx.y+3*openHalf);
+        let lateralY=Math.min(Math.max(Y(tdTVD),shoePx.y+2.1*openHalf),shoePx.y+3.2*openHalf);
         let D=(lateralY-shoePx.y)/st.y;
         let corner={x:shoePx.x+st.x*D,y:lateralY};
         waypoints=[shoePx,corner,{x:Math.max(flatEndX,corner.x+60),y:lateralY}];
@@ -900,43 +945,11 @@ function drawSchematicProfile(){
       if(!st||((endPx.x-shoePx.x)*st.x+(endPx.y-shoePx.y)*st.y)/dl>=0.85)waypoints=[shoePx,endPx];
       else waypoints=[shoePx,{x:shoePx.x+st.x*1.6*openHalf,y:shoePx.y+st.y*1.6*openHalf},endPx];
     }
-    // Wobble phase (stored on the .md field, reused below) is cumulative ON-SCREEN pixel distance
-    // along the run, so the wave keeps the same wavelength everywhere. Each point carries the
-    // perpendicular normal of its own straight segment (constant within it, so it can never flip).
-    // The first segment reuses the shoe's own normal when the open hole carries on in the casing's
-    // direction (within ~30 degrees) so the walls start exactly on the pipe wall; otherwise it uses
-    // its own perpendicular - offsetting a horizontal run along the casing's sideways direction
-    // slid the two walls along the run instead of apart, crushing it into a thin ribbon.
-    let openCenter=[],cumPx=0,segNorm=[],segTan=[],cornerIdx=[];
-    for(let s=0;s<waypoints.length-1;s++){
-      let a=waypoints[s], b=waypoints[s+1];
-      let segLen=Math.hypot(b.x-a.x,b.y-a.y)||1, steps=Math.max(8,Math.ceil(segLen/3));
-      let tx=(b.x-a.x)/segLen, ty=(b.y-a.y)/segLen;
-      let aligned=s===0&&shoeNormP&&(tx*shoeNormP.ny+ty*-shoeNormP.nx)>=0.85;
-      let nx=aligned?shoeNormP.nx:-ty, ny=aligned?shoeNormP.ny:tx;
-      segNorm.push({nx,ny});segTan.push({x:tx,y:ty});
-      for(let i=(s===0?0:1);i<=steps;i++){
-        let t=i/steps;
-        let pt={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};
-        if(openCenter.length>0){let prev=openCenter[openCenter.length-1];cumPx+=Math.hypot(pt.x-prev.x,pt.y-prev.y)}
-        openCenter.push({...pt,md:cumPx,nx,ny});
-      }
-      if(s<waypoints.length-2)cornerIdx.push(openCenter.length-1);
-    }
-    // Elbows: at each corner the two walls meet at the mitre point (where the neighbouring segments'
-    // offset lines cross), and the wave dies away over ~26px either side so the corner stays clean.
-    cornerIdx.forEach((ci,k)=>{
-      let A=segNorm[k],B=segNorm[k+1],d=A.nx*B.nx+A.ny*B.ny;
-      if(1+d>0.25){
-        openCenter[ci].nx=(A.nx+B.nx)/(1+d);openCenter[ci].ny=(A.ny+B.ny)/(1+d);
-        // On the INSIDE of the bend the two walls cross before reaching the corner: points closer than
-        // h*tan(turn/2) to it would overshoot the crossing and tie the wall in a knot, so they are dropped
-        // from that wall only (the corner vertex itself is the crossing). The outside wall keeps them.
-        let trim=openHalf*Math.sqrt(Math.max(0,(1-d)/(1+d))),inner=(segTan[k+1].x*A.nx+segTan[k+1].y*A.ny)>0?1:-1;
-        openCenter.forEach((pt,j)=>{if(j!==ci&&Math.abs(pt.md-openCenter[ci].md)<trim)pt.skip=inner});
-      }
-    });
-    openCenter.forEach(pt=>{let k=1;cornerIdx.forEach(ci=>{k=Math.min(k,Math.abs(pt.md-openCenter[ci].md)/26)});pt.taper=Math.min(1,k)});
+    // The centreline is the straight runs joined by smooth rounded bends (bend radius 2.4x the half-width,
+    // so the inside wall keeps a healthy radius and cannot fold over). Wobble phase (the .md field) is the
+    // cumulative on-screen distance along it, so the wave keeps one wavelength everywhere, and each point
+    // carries the normal used to offset the two walls.
+    let openCenter=profileRoundedCenter(waypoints,2.4*openHalf,shoeNormP);
     let period=30;
     let openLineOff=profileLineOffset('line_openhole');
     // Back to the wavy two-line outline (not a solid hatched fill - that changed the look of
