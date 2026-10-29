@@ -2075,13 +2075,70 @@ function tdReadTable(){
   state.timeDepth=rows;
   return rows;
 }
+/* Casing running and cementing add TIME but no DEPTH: each is a row whose from- and to-depths are the
+   same shoe depth, so it plots as a flat line in the time-depth curve (grey for running, cyan for
+   cementing). Durations are planning placeholders - a running rate (m/day) applied to the shoe depth, and
+   a fixed cementing time per string - both editable, and every row can be overwritten in the table. */
+function tdCasingSettings(){
+  let g=state.general||{},set=v=>v!==undefined&&v!==null&&v!=='',rate=set(g.tdRunRate)?n(g.tdRunRate):NaN,cem=set(g.tdCementDays)?n(g.tdCementDays):NaN;
+  return {rate:Number.isFinite(rate)&&rate>0?rate:1000,cem:Number.isFinite(cem)&&cem>=0?cem:0.75,include:g.tdIncCasing!==0};
+}
+function tdSaveCasingSettings(){
+  let g=state.general;g.tdRunRate=n($('tdRunRate').value);g.tdCementDays=n($('tdCementDays').value);g.tdIncCasing=$('tdIncCasing').checked?1:0;
+}
+function tdCasingFieldsHtml(){
+  let c=tdCasingSettings();
+  return '<div class="grid3" style="margin-top:10px"><label>Casing running rate (m/day)<input id="tdRunRate" type="number" min="1" step="50" value="'+c.rate+'" onchange="tdSaveCasingSettings()"></label><label>Cementing per string (days)<input id="tdCementDays" type="number" min="0" step="0.05" value="'+c.cem+'" onchange="tdSaveCasingSettings()"></label><label style="display:flex;align-items:center;gap:8px;margin-top:22px"><input id="tdIncCasing" type="checkbox" '+(c.include?'checked':'')+' style="width:auto" onchange="tdSaveCasingSettings()"> Include casing running &amp; cementing in the draft</label></div><p class="note" style="margin-top:6px">Running casing and cementing add time but no depth, so they plot as flat lines in the curve (grey and cyan). The running rate and cementing time are planning placeholders: edit them here, or overwrite the durations in the table.</p>';
+}
+function tdCasingRowsFor(s,rate,cem,at,section){
+  let liner=/liner/i.test(String(s.Type||'')),size=String(s.String||'').trim()||fmt(n(s.OD),3),label=size+'" '+(liner?'liner':'casing');
+  let run=Math.max(0.5,Math.round(n(s.ShoeMD)/rate*100)/100);
+  let base={Section:section||'',FromMD:at.md,ToMD:at.md,FromTVD:at.tvd,ToTVD:at.tvd};
+  return [
+    Object.assign({},base,{Activity:'Run '+label,DurationDays:run,Phase:'Casing',Comments:'Placeholder: shoe depth / '+fmt(rate,0)+' m/day (minimum 0.5 day) - edit as needed'}),
+    Object.assign({},base,{Activity:'Cement '+label,DurationDays:cem,Phase:'Cementing',Comments:'Placeholder cementing time - edit as needed'})
+  ];
+}
+/* Adds a run + cement pair after the last drilling row that ends at each casing/liner shoe. Strings that
+   already have casing/cementing rows at that depth are skipped, so it is safe to run repeatedly. */
+function tdInsertCasingRows(rows){
+  let st=tdCasingSettings(),out=rows.slice(),added=0,skipped=[],missed=[];
+  let strings=(state.strings||[]).filter(s=>Number.isFinite(n(s.ShoeMD))&&n(s.ShoeMD)>0).slice().sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
+  strings.forEach(s=>{
+    let md=n(s.ShoeMD),name=(String(s.String||'').trim()||fmt(n(s.OD),3))+'"';
+    if(out.some(r=>/casing|cement/i.test(String(r.Phase||''))&&Math.abs(n(r.FromMD)-md)<=1)){skipped.push(name);return}
+    let idx=-1;out.forEach((r,i)=>{if(/drill/i.test(String(r.Phase||''))&&Math.abs(n(r.ToMD)-md)<=1)idx=i});
+    if(idx<0){missed.push(name);return}
+    let r=out[idx];
+    out.splice(idx+1,0,...tdCasingRowsFor(s,st.rate,st.cem,{md:n(r.ToMD),tvd:n(r.ToTVD)},r.Section));
+    added++;
+  });
+  return {rows:out,added,skipped,missed};
+}
+function tdCasingMessage(r){
+  let m=[];
+  if(r.added)m.push('Added running + cementing rows for '+r.added+' casing/liner string'+(r.added>1?'s':'')+' (placeholder durations - edit as needed). They plot as flat lines.');
+  else m.push('No casing or cementing rows were added.');
+  if(r.skipped.length)m.push('Already present for '+r.skipped.join(', ')+'.');
+  if(r.missed.length)m.push('Not added for '+r.missed.join(', ')+': no drilling row ends at that shoe (a conductor installed before the first drilled section is not included).');
+  return m.join(' ');
+}
+function tdAddCasingRows(){
+  tdReadTable();
+  let r=tdInsertCasingRows(state.timeDepth||[]);
+  state.timeDepth=r.rows;renderTimeDepth();$('tdImportStatus').textContent=tdCasingMessage(r);
+}
 function tdBuildFromSections(){
-  state.timeDepth=(state.sections||[]).map(s=>({
+  let rows=(state.sections||[]).map(s=>({
     Activity:'Drill '+(s.Section||'section')+' section',Section:s.Section||'',
     FromMD:n(s.FromMD),ToMD:n(s.ToMD),FromTVD:n(s.FromTVD),ToTVD:n(s.ToTVD),
     DurationDays:'',Phase:'Drilling',Comments:''
   }));
+  let msg='';
+  if(tdCasingSettings().include){let r=tdInsertCasingRows(rows);rows=r.rows;msg=tdCasingMessage(r)+' Fill in the drilling days to complete the curve.'}
+  state.timeDepth=rows;
   renderTimeDepth();
+  if(msg)$('tdImportStatus').textContent=msg;
 }
 function tdAddRow(){tdReadTable();state.timeDepth.push(tdBlankRow());renderTimeDepth();}
 function tdClearRows(){state.timeDepth=[tdBlankRow()];renderTimeDepth();}
@@ -2144,7 +2201,9 @@ function drawTimeDepthPlot(){
   for(let d=0;d<=maxDay+.001;d+=Math.max(1,Math.ceil(maxDay/10))){svg.push('<line x1="'+X(d)+'" y1="'+T+'" x2="'+X(d)+'" y2="'+(T+h)+'" stroke="#e5eef2"/><text x="'+(X(d)-8)+'" y="'+(T+h+24)+'" font-family="Segoe UI" font-size="11" fill="#607987">'+fmt(d,0)+'</text>')}
   for(let dep=0;dep<=maxDepth;dep+=500){svg.push('<line x1="'+L+'" y1="'+Y(dep)+'" x2="'+(L+w)+'" y2="'+Y(dep)+'" stroke="#e5eef2"/><text x="'+(L-64)+'" y="'+(Y(dep)+4)+'" font-family="Segoe UI" font-size="11" fill="#607987">'+fmt(dep,0)+'</text>')}
   svg.push('<rect x="'+L+'" y="'+T+'" width="'+w+'" height="'+h+'" fill="none" stroke="#102a3a"/>');
-  const phaseColour=p=>{p=String(p||'').toLowerCase(); if(p.includes('case'))return '#737373'; if(p.includes('cement'))return '#00a3c7'; if(p.includes('complete'))return '#107c41'; if(p.includes('flat')||p.includes('bop')||p.includes('wellhead'))return '#ff7f0e'; return '#003b5c';};
+  const phaseColour=p=>{p=String(p||'').toLowerCase(); if(p.includes('casing')||p.includes('liner'))return '#737373'; if(p.includes('cement'))return '#00a3c7'; if(p.includes('complete'))return '#107c41'; if(p.includes('flat')||p.includes('bop')||p.includes('wellhead'))return '#ff7f0e'; return '#003b5c';};
+  let legendItems=[['Drilling / other','#003b5c'],['Casing','#737373'],['Cementing','#00a3c7'],['Completion','#107c41'],['Flat time','#ff7f0e']],usedCols=new Set(pts.map(q=>phaseColour(q.row.Phase))),lx=L+150;
+  legendItems.filter(it=>usedCols.has(it[1])).forEach(it=>{svg.push('<line x1="'+lx+'" y1="'+(T-23)+'" x2="'+(lx+22)+'" y2="'+(T-23)+'" stroke="'+it[1]+'" stroke-width="3"/><text x="'+(lx+28)+'" y="'+(T-19)+'" font-family="Segoe UI" font-size="12" fill="#35505f">'+it[0]+'</text>');lx+=44+it[0].length*6.4});
   for(let i=0;i<pts.length-1;i+=2){let a=pts[i],b=pts[i+1],col=phaseColour(a.row.Phase),tip=(a.row.Activity||'Activity')+' | '+(a.row.Section||'')+' | Day '+fmt(a.day,1)+'-'+fmt(b.day,1)+' | '+basis+' '+fmt(a.depth,0)+'-'+fmt(b.depth,0)+' m | '+fmt(a.row.DurationDays,1)+' days | '+(a.row.Phase||'');svg.push('<line x1="'+X(a.day)+'" y1="'+Y(a.depth)+'" x2="'+X(b.day)+'" y2="'+Y(b.depth)+'" stroke="'+col+'" stroke-width="3" data-tip="'+esc(tip)+'" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><circle cx="'+X(b.day)+'" cy="'+Y(b.depth)+'" r="4" fill="'+col+'"><title>'+esc(tip)+'</title></circle>')}
   if(showShoes){state.strings.forEach(s=>{let dep=basis==='MD'?n(s.ShoeMD):n(s.ShoeTVD);if(Number.isFinite(dep)&&dep>0){let label=(s.String||'')+(s.Label?' - '+s.Label:'');let tip=label+' | '+basis+' '+fmt(dep,0)+' m';svg.push('<line x1="'+L+'" y1="'+Y(dep)+'" x2="'+(L+w)+'" y2="'+Y(dep)+'" stroke="#003b5c" stroke-width="1" stroke-dasharray="6,5" data-tip="'+esc(tip)+'" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><text x="'+(L+w+10)+'" y="'+(Y(dep)-3)+'" font-family="Segoe UI" font-size="11" fill="#003b5c">'+esc(label)+'</text>')}})}
   svg.push('<text x="'+(L+w/2-45)+'" y="'+(H-30)+'" font-family="Segoe UI" font-size="11" fill="#102a3a">Days from start</text><text transform="translate(24 '+(T+h/2)+') rotate(-90)" font-family="Segoe UI" font-size="11" fill="#102a3a">'+basis+' m</text></svg>');
@@ -2153,7 +2212,7 @@ function drawTimeDepthPlot(){
 }
 function renderTimeDepth(){
   if(!state.timeDepth)state.timeDepth=[];
-  $('page-timeDepth').innerHTML='<div class="card"><h3>Time vs Depth</h3><p class="note">Activity-based time-depth plot. Use Build draft from section table to create rows from the current well sections, then fill in duration days and phases.</p><div class="actions"><button class="dark" onclick="tdBuildFromSections()">Build draft from section table</button><button onclick="tdAddRow()">Add row</button><button onclick="tdClearRows()">Clear rows</button><button class="dark" onclick="tdApply()">Apply table + update plot</button><button onclick="tdDownloadCSV()">Download CSV</button><label style="margin:0"><input type="file" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="tdImportFile(this)"><span style="display:inline-block;border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer">Import CSV/Excel</span></label></div><p id="tdImportStatus" class="note"></p><div class="grid3" style="margin-top:10px"><label>Depth basis<select id="tdBasis" onchange="tdApply()"><option>MD</option><option>TVD</option></select></label><label style="display:flex;align-items:center;gap:8px;margin-top:22px"><input id="tdShoes" type="checkbox" checked style="width:auto" onchange="tdApply()"> Show casing shoes</label></div></div><div id="tdMetrics" class="grid3"></div><div class="card"><h3>Time-depth activity table</h3><div class="table-wrap" id="tdTable"></div></div><div class="card"><h3>Time vs Depth plot</h3><div id="tdPlot" class="plot"></div></div>';
+  $('page-timeDepth').innerHTML='<div class="card"><h3>Time vs Depth</h3><p class="note">Activity-based time-depth plot. Use Build draft from section table to create rows from the current well sections, then fill in duration days and phases.</p><div class="actions"><button class="dark" onclick="tdBuildFromSections()">Build draft from section table</button><button onclick="tdAddCasingRows()">Add casing &amp; cementing rows</button><button onclick="tdAddRow()">Add row</button><button onclick="tdClearRows()">Clear rows</button><button class="dark" onclick="tdApply()">Apply table + update plot</button><button onclick="tdDownloadCSV()">Download CSV</button><label style="margin:0"><input type="file" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="tdImportFile(this)"><span style="display:inline-block;border:1px solid var(--line);border-radius:11px;background:white;color:#17495d;padding:8px 12px;font-weight:800;cursor:pointer">Import CSV/Excel</span></label></div><p id="tdImportStatus" class="note"></p><div class="grid3" style="margin-top:10px"><label>Depth basis<select id="tdBasis" onchange="tdApply()"><option>MD</option><option>TVD</option></select></label><label style="display:flex;align-items:center;gap:8px;margin-top:22px"><input id="tdShoes" type="checkbox" checked style="width:auto" onchange="tdApply()"> Show casing shoes</label></div>'+tdCasingFieldsHtml()+'</div><div id="tdMetrics" class="grid3"></div><div class="card"><h3>Time-depth activity table</h3><div class="table-wrap" id="tdTable"></div></div><div class="card"><h3>Time vs Depth plot</h3><div id="tdPlot" class="plot"></div></div>';
   tdEditTable();drawTimeDepthPlot();
 }
 /* Design checks: automated sanity checks on the current well data. Each check returns
