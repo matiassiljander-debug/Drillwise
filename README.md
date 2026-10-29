@@ -32,6 +32,7 @@ v2.1
 - Capacity
 - Time vs Depth
 - Export / Checks
+- Well Summary (one-page A4 overview, print / save as PDF)
 
 ## Key capabilities
 
@@ -92,6 +93,12 @@ v2.1
 - Casing / running / cement / flat-time rows stay stationary at depth while time moves
 - MD/TVD basis selector
 - Casing shoe overlays
+
+### Well Summary
+
+- One A4 page for the whole well: casing sketch, wellpath profile, PP / FG / mud weight, hole and casing program, kick tolerance, ECD, torque & drag, time vs depth, time & cost and the design checks
+- Built from the other tabs with the same calculations, so it always shows their current numbers; parts not filled in yet are left out and listed
+- Optional prepared-by, revision and remarks fields; Print / Save as PDF
 
 ## Development rules
 
