@@ -86,13 +86,13 @@ window.addEventListener('unhandledrejection',e=>{let msg=String((e&&e.reason&&e.
 const BAR_PER_M_SG=0.0980665,CAP_LPM=0.506707,BBL=6.28981,$=id=>document.getElementById(id),n=v=>{let x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:NaN},fmt=(v,d=2)=>Number.isFinite(n(v))?n(v).toFixed(d):'',esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function showPlotTip(evt,text){let t=$('plotTooltip');if(!t)return;t.textContent=text;t.style.display='block';let x=(evt&&evt.clientX?evt.clientX:0)+14,y=(evt&&evt.clientY?evt.clientY:0)+14;t.style.left=x+'px';t.style.top=y+'px'}function hidePlotTip(){let t=$('plotTooltip');if(t)t.style.display='none'}
 const drillingJokes=['Bit by bit, we get to TD 🙂','I tried to make a drilling joke, but it went over gauge 🙂','Good wells have good plans, great wells have good coffee 🙂','Stay calm and circulate bottoms up 🙂'];function newDrillingJoke(){let el=$('cornerJoke');if(el){el.textContent=drillingJokes[Math.floor(Math.random()*drillingJokes.length)];el.style.display='block';clearTimeout(window._jokeTimer);window._jokeTimer=setTimeout(()=>{el.style.display='none'},4500)}}
-const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['npd','03b NPD Offset Wells'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['cost','08b Time & Cost'],['export','09 Checks']];
+const pages=[['dashboard','00 Dashboard'],['input','01 Inputs / Upload'],['schematic','02 Well Schematic'],['schematicProfile','02b Schematic (Profile)'],['wellpath','03 Wellpath'],['npd','03b NPD Offset Wells'],['riser','04 Riser Margin'],['gas','05 Gas Migration'],['kick','06 Kick Tolerance'],['ecd','06b ECD / Hydraulics'],['td','06c Torque & Drag'],['capacity','07 Capacity'],['timeDepth','08 Time vs Depth'],['cost','08b Time & Cost'],['export','09 Checks'],['summary','10 Well Summary']];
 const state={active:'dashboard',general:{caseName:'Sabina South',waterDepth:445,airGap:33,swDensity:1.03,requiredOB:0},ppfgRaw:[],wpRaw:[],bhaRaw:[],ppfg:[],wp:[],bha:[],strings:[],sections:[],kickSettings:{},ecdSettings:{},tdSettings:{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20},rmColors:{PP:'#d62728',FG:'#1f77b4',Shmin:'#9467bd',Collapse:'#ff7f0e',MW:'#107c41',Required:'#555555',Shoe:'#003b5c'},schematicLabelPos:{},schematicNotes:[],showShoesOnTrajectory:false,offsetWells:[],schematicProfileLabelPos:{},schematicProfileLinePos:{},targets:[]};
 const OFFSET_WELL_COLORS=['#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#e377c2','#8c564b','#bcbd22','#7f7f7f','#1f77b4'];
 function seabedTVD(){return (Number.isFinite(n(state.general.waterDepth))?n(state.general.waterDepth):0)+(Number.isFinite(n(state.general.airGap))?n(state.general.airGap):0)}
 function defaults(){let sb=seabedTVD();state.strings=[{String:'36 x 30 conductor',Type:'Conductor',TopTVD:sb,ShoeTVD:515,TopMD:sb,ShoeMD:515,TopCementMD:sb,OD:36,ID:30,Label:'36 x 30 shoe'},{String:'20 casing',Type:'Casing',TopTVD:sb,ShoeTVD:1400,TopMD:sb,ShoeMD:1400,TopCementMD:sb,OD:20,ID:18,Label:'20 shoe'},{String:'14 casing',Type:'Casing',TopTVD:sb,ShoeTVD:2840,TopMD:sb,ShoeMD:2840,TopCementMD:2540,OD:14,ID:12.35,Label:'14 shoe'},{String:'9 7/8 liner',Type:'Liner',TopTVD:2790,ShoeTVD:3552,TopMD:2790,ShoeMD:3552,TopCementMD:3052,OD:9.875,ID:8.5,Label:'9 7/8 shoe'}];state.sections=[{Section:'26',Hole:26,FromTVD:515,ToTVD:1400,FromMD:515,ToMD:1400,MW:1.30,RM:false},{Section:'17.5',Hole:17.5,FromTVD:1400,ToTVD:2840,FromMD:1400,ToMD:2840,MW:1.55,RM:true},{Section:'12.25',Hole:12.25,FromTVD:2840,ToTVD:3552,FromMD:2840,ToMD:3552,MW:1.70,RM:true},{Section:'8.5',Hole:8.5,FromTVD:3552,ToTVD:4210,FromMD:3552,ToMD:5000,MW:1.70,RM:true}];state.ppfg=[{TVD:1400,PP:1.21,FG:1.72,Shmin:1.60,Collapse:1.82},{TVD:2840,PP:1.40,FG:1.86,Shmin:1.70,Collapse:1.92},{TVD:3552,PP:1.55,FG:1.95,Shmin:1.80,Collapse:2.02},{TVD:4210,PP:1.60,FG:2.05,Shmin:1.90,Collapse:2.10}];state.bha=[{Component:'8.5in PDC bit',OD:8.5,ID:0,Length:0.4},{Component:'Mud motor',OD:6.75,ID:3.0,Length:8},{Component:'MWD/LWD',OD:6.75,ID:3.0,Length:9},{Component:'Stabilizer',OD:8.375,ID:3.0,Length:1.5},{Component:'Non-mag drill collar',OD:6.75,ID:2.8125,Length:9},{Component:'HWDP',OD:5,ID:3.0,Length:90}]};defaults();
 function ppfgValue(v){let x=n(v);return Number.isFinite(x)&&x>-998?x:NaN}
-function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,npd:renderNpd,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,cost:renderCost,export:renderExport}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
+function show(id){state.active=id;render()}function nav(){$('nav').innerHTML=pages.map(p=>`<button class="${state.active===p[0]?'active':''}" onclick="show('${p[0]}')">${p[1]}</button>`).join('')}function render(){nav();$('pages').innerHTML=pages.map(p=>`<section class="page ${state.active===p[0]?'active':''}" id="page-${p[0]}"></section>`).join('');({dashboard:renderDashboard,input:renderInput,schematic:renderSchematic,schematicProfile:renderSchematicProfile,wellpath:renderWellpath,npd:renderNpd,riser:renderRiser,gas:renderGas,kick:renderKick,ecd:renderECD,td:renderTD,capacity:renderCapacity,timeDepth:renderTimeDepth,cost:renderCost,export:renderExport,summary:renderSummary}[state.active])()}function maxDepth(){return Math.max(100,...state.sections.map(s=>n(s.ToTVD)||0),...state.strings.map(s=>n(s.ShoeTVD)||0))}
 function table(rows){if(!rows||!rows.length)return'<p class="note">No data.</p>';let cols=Object.keys(rows[0]);return`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td${typeof r[c]==='number'?' class="num"':''}>${typeof r[c]==='number'?(Number.isFinite(r[c])?fmt(r[c],Math.abs(r[c])<10?3:1):''):esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function editTable(id,rows,cols){$(id).innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${(c==='RM')?`<select data-col="${c}"><option ${r[c]?'selected':''}>true</option><option ${!r[c]?'selected':''}>false</option></select>`:`<input data-col="${c}" value="${r[c]??''}">`}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
 function readEdit(id){let out=[];[...$(id).querySelectorAll('tbody tr')].forEach(tr=>{let o={};[...tr.querySelectorAll('input,select')].forEach(inp=>{let c=inp.dataset.col,v=inp.value;o[c]=(c==='RM')?v==='true':(['String','Type','Label','Section','Component','Name'].includes(c)?v:n(v))});out.push(o)});return out}
@@ -2171,6 +2171,7 @@ async function tdImportFile(inp){
     renderTimeDepth();
   }catch(e){let el=$('tdImportStatus');if(el)el.textContent='Import failed: '+e.message+'. Try CSV with the standard columns.';}
 }
+function tdPhaseColour(p){p=String(p||'').toLowerCase(); if(p.includes('casing')||p.includes('liner'))return '#737373'; if(p.includes('cement'))return '#00a3c7'; if(p.includes('complete'))return '#107c41'; if(p.includes('flat')||p.includes('bop')||p.includes('wellhead'))return '#ff7f0e'; return '#003b5c';}
 function tdPlotRows(basis){
   let rows=tdRowsClean().filter(r=>Number.isFinite(r.DurationDays)&&r.DurationDays>=0);
   let cum=0,out=[];
@@ -2201,7 +2202,7 @@ function drawTimeDepthPlot(){
   for(let d=0;d<=maxDay+.001;d+=Math.max(1,Math.ceil(maxDay/10))){svg.push('<line x1="'+X(d)+'" y1="'+T+'" x2="'+X(d)+'" y2="'+(T+h)+'" stroke="#e5eef2"/><text x="'+(X(d)-8)+'" y="'+(T+h+24)+'" font-family="Segoe UI" font-size="11" fill="#607987">'+fmt(d,0)+'</text>')}
   for(let dep=0;dep<=maxDepth;dep+=500){svg.push('<line x1="'+L+'" y1="'+Y(dep)+'" x2="'+(L+w)+'" y2="'+Y(dep)+'" stroke="#e5eef2"/><text x="'+(L-64)+'" y="'+(Y(dep)+4)+'" font-family="Segoe UI" font-size="11" fill="#607987">'+fmt(dep,0)+'</text>')}
   svg.push('<rect x="'+L+'" y="'+T+'" width="'+w+'" height="'+h+'" fill="none" stroke="#102a3a"/>');
-  const phaseColour=p=>{p=String(p||'').toLowerCase(); if(p.includes('casing')||p.includes('liner'))return '#737373'; if(p.includes('cement'))return '#00a3c7'; if(p.includes('complete'))return '#107c41'; if(p.includes('flat')||p.includes('bop')||p.includes('wellhead'))return '#ff7f0e'; return '#003b5c';};
+  const phaseColour=tdPhaseColour;
   let legendItems=[['Drilling / other','#003b5c'],['Casing','#737373'],['Cementing','#00a3c7'],['Completion','#107c41'],['Flat time','#ff7f0e']],usedCols=new Set(pts.map(q=>phaseColour(q.row.Phase))),lx=L+150;
   legendItems.filter(it=>usedCols.has(it[1])).forEach(it=>{svg.push('<line x1="'+lx+'" y1="'+(T-23)+'" x2="'+(lx+22)+'" y2="'+(T-23)+'" stroke="'+it[1]+'" stroke-width="3"/><text x="'+(lx+28)+'" y="'+(T-19)+'" font-family="Segoe UI" font-size="12" fill="#35505f">'+it[0]+'</text>');lx+=44+it[0].length*6.4});
   for(let i=0;i<pts.length-1;i+=2){let a=pts[i],b=pts[i+1],col=phaseColour(a.row.Phase),tip=(a.row.Activity||'Activity')+' | '+(a.row.Section||'')+' | Day '+fmt(a.day,1)+'-'+fmt(b.day,1)+' | '+basis+' '+fmt(a.depth,0)+'-'+fmt(b.depth,0)+' m | '+fmt(a.row.DurationDays,1)+' days | '+(a.row.Phase||'');svg.push('<line x1="'+X(a.day)+'" y1="'+Y(a.depth)+'" x2="'+X(b.day)+'" y2="'+Y(b.depth)+'" stroke="'+col+'" stroke-width="3" data-tip="'+esc(tip)+'" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><circle cx="'+X(b.day)+'" cy="'+Y(b.depth)+'" r="4" fill="'+col+'"><title>'+esc(tip)+'</title></circle>')}
@@ -2912,5 +2913,274 @@ function cePrintReport(){
   setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();ceStatus('In the print dialog, choose "Save as PDF" as the destination.')}catch(e){ceStatus('Could not open the print dialog: '+(e&&e.message||e),true);done()}},300);
 }
 
+
+/* ===================================================================================
+   10 Well summary: a one-page A4 overview of the whole well, built from the other tabs.
+   Nothing is calculated separately here - it reuses the same functions the tabs use (kick tolerance,
+   ECD, torque & drag, design checks, time vs depth, time & cost), so the page always agrees with them.
+   The three depth panels (casing sketch, wellpath profile, pore pressure / fracture gradient) share
+   one TVD scale. Anything not filled in yet is listed on the page and left out of the sheet.
+   =================================================================================== */
+const WS_DASH='–';
+const WS_OK='#107c41',WS_BAD='#c62828',WS_WARN='#b26a00',WS_MUTE='#607987';
+function wsNum(v,d){return typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-GB',{minimumFractionDigits:d,maximumFractionDigits:d}):WS_DASH}
+function wsPill(txt,kind){let c=kind==='ok'?WS_OK:kind==='bad'?WS_BAD:kind==='warn'?WS_WARN:WS_MUTE;return '<span class="pill" style="color:'+c+';border-color:'+c+'">'+esc(txt)+'</span>'}
+function wsTry(fn,fallback){try{return fn()}catch(e){console.warn('Well summary: '+(e&&e.message||e));return fallback}}
+
+function wsData(){
+  let g=state.general||{},sb=seabedTVD();
+  let strings=(state.strings||[]).filter(s=>n(s.ShoeMD)>0).slice().sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
+  let sections=(state.sections||[]).filter(s=>n(s.ToMD)>n(s.FromMD)&&n(s.ToTVD)>0);
+  let wp=(state.wp||[]).filter(r=>Number.isFinite(r.MD)&&Number.isFinite(r.TVD)).slice().sort((a,b)=>a.MD-b.MD).map(r=>({MD:r.MD,TVD:r.TVD,Inc:r.Inc,Dep:Math.hypot(n(r.NS)||0,n(r.EW)||0)}));
+  let ppfg=(state.ppfg||[]).filter(r=>Number.isFinite(r.TVD));
+  let deepest=sections.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0];
+  let tdMD=deepest?n(deepest.ToMD):NaN,tdTVD=deepest?n(deepest.ToTVD):NaN;
+  let maxTVD=Math.max(100,tdTVD||0,...strings.map(s=>n(s.ShoeTVD)||0));
+  let kt=wsTry(()=>kickSections().filter(s=>n(s.ToTVD)>0).map(s=>({sec:s,r:calculateKick(s,getKick(s))})),[]);
+  let ecd=wsTry(()=>ecdSummaryRows(),[]);
+  let tdr=wsTry(()=>tdSections().map(s=>({sec:s,r:calculateTD(s,state.tdSettings)})),[]);
+  let checks=wsTry(()=>runDesignChecks(),[]);
+  let tdRows=wsTry(()=>tdRowsClean().filter(r=>Number.isFinite(r.DurationDays)&&r.DurationDays>0),[]);
+  let cost=wsTry(()=>ceSnapshot(),null);
+  let hasCost=!!(cost&&cost.t&&Number.isFinite(cost.t.budgetCost)&&cost.t.budgetCost>0);
+  let missing=[];
+  if(!strings.length)missing.push('casing / liner program (Inputs tab)');
+  if(!sections.length)missing.push('hole sections (Inputs tab)');
+  if(!wp.length)missing.push('wellpath survey (Inputs tab)');
+  if(!ppfg.length)missing.push('pore pressure / fracture gradient (Inputs tab)');
+  if(!state.bha||!state.bha.length)missing.push('BHA table (ECD tab) - needed for ECD and torque & drag');
+  if(!tdRows.length)missing.push('time vs depth activities (Time vs Depth tab)');
+  if(!hasCost)missing.push('time & cost estimate (Time & Cost tab)');
+  return {g,sb,strings,sections,wp,ppfg,tdMD,tdTVD,maxTVD,kt,ecd,tdr,checks,tdRows,cost,hasCost,missing,
+    maxInc:wp.length?Math.max(...wp.map(r=>n(r.Inc)||0)):NaN};
+}
+
+/* --- shared geometry for the three depth panels (viewBox 230 x 290) --- */
+const WS_PT=30,WS_PH=244;
+/* labels sit on their own depth where they can; where they would overlap they are spread apart, and the
+   whole stack is lifted if it would run off the bottom of the panel */
+function wsStack(items,gap,hi){items.forEach((it,i)=>{it.ly=i?Math.max(it.y,items[i-1].ly+gap):it.y});if(items.length&&items[items.length-1].ly>hi){items[items.length-1].ly=hi;for(let i=items.length-2;i>=0;i--)items[i].ly=Math.min(items[i].ly,items[i+1].ly-gap)}return items}
+function wsY(D,tvd){return WS_PT+Math.max(0,tvd)/D.maxTVD*WS_PH}
+function wsAxisTicks(D){let step=D.maxTVD>6000?1000:D.maxTVD>2500?500:D.maxTVD>1000?250:100,t=[];for(let v=0;v<=D.maxTVD+.001;v+=step)t.push(v);return t}
+function wsPanelOpen(title,sub){return '<svg viewBox="0 0 230 304" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial,sans-serif"><text x="4" y="11" font-size="10" font-weight="700" fill="#003b5c">'+esc(title)+'</text>'+(sub?'<text x="4" y="22" font-size="7.5" fill="'+WS_MUTE+'">'+esc(sub)+'</text>':'')}
+function wsNoData(title,msg){return wsPanelOpen(title,'')+'<text x="115" y="150" font-size="9" fill="'+WS_MUTE+'" text-anchor="middle">'+esc(msg)+'</text></svg>'}
+function wsHoleHw(od){return 8+Math.min(40,Math.max(0,od))/36*30}   /* half-width in px, not to scale */
+
+function wsSketch(D){
+  if(!D.strings.length&&!D.sections.length)return wsNoData('Casing sketch','No casing program yet');
+  let cx=86,Y=t=>wsY(D,t),o=wsPanelOpen('Casing sketch','Not to scale horizontally');
+  let topOf=s=>Number.isFinite(n(s.TopTVD))&&String(s.TopTVD).trim()!==''?n(s.TopTVD):D.sb;
+  let strs=D.strings.filter(s=>n(s.ShoeTVD)>0&&n(s.OD)>0);
+  let lastShoe=strs.length?Math.max(...strs.map(s=>n(s.ShoeTVD))):D.sb;
+  let ohHole=D.sections.length?n(D.sections.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0].Hole):NaN;
+  let ohHw=wsHoleHw(Number.isFinite(ohHole)&&ohHole>0?ohHole:6);
+  /* axis + grid */
+  wsAxisTicks(D).forEach(v=>{o+='<line x1="30" y1="'+Y(v)+'" x2="226" y2="'+Y(v)+'" stroke="#eef3f6"/><text x="26" y="'+(Y(v)+2.5)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="end">'+v+'</text>'});
+  o+='<text transform="translate(7 '+(WS_PT+WS_PH/2)+') rotate(-90)" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">TVD m</text>';
+  /* fluid fill: innermost string at each depth, open hole below the last shoe */
+  let edges=[D.sb].concat(strs.map(s=>n(s.ShoeTVD))).concat([D.maxTVD]).filter((v,i,a)=>i===0||v>a[i-1]);
+  for(let i=0;i<edges.length-1;i++){
+    let d=(edges[i]+edges[i+1])/2,cov=strs.filter(s=>topOf(s)<=d&&n(s.ShoeTVD)>=d).sort((a,b)=>n(a.OD)-n(b.OD))[0];
+    let hw=cov?wsHoleHw(n(cov.OD))-3:ohHw,fill=cov?'#e8f5fb':'#fdf3e1';
+    o+='<rect x="'+(cx-hw)+'" y="'+Y(edges[i])+'" width="'+(2*hw)+'" height="'+(Y(edges[i+1])-Y(edges[i]))+'" fill="'+fill+'"/>';
+  }
+  /* cement + casing walls + shoes */
+  strs.slice().sort((a,b)=>n(b.OD)-n(a.OD)).forEach(s=>{
+    let hw=wsHoleHw(n(s.OD)),y0=Y(topOf(s)),y1=Y(n(s.ShoeTVD)),cMD=n(s.TopCementMD),cT=Number.isFinite(cMD)&&String(s.TopCementMD).trim()!==''&&cMD>0?mdToTvd(cMD):NaN;
+    if(Number.isFinite(cT)){let yc=Math.min(y1,Math.max(y0,Y(cT)));[-1,1].forEach(sg=>{o+='<rect x="'+(sg<0?cx-hw-4.5:cx+hw)+'" y="'+yc+'" width="4.5" height="'+(y1-yc)+'" fill="#b9bfc4"/>'});}
+    o+='<line x1="'+(cx-hw)+'" y1="'+y0+'" x2="'+(cx-hw)+'" y2="'+y1+'" stroke="#16384b" stroke-width="1.8"/><line x1="'+(cx+hw)+'" y1="'+y0+'" x2="'+(cx+hw)+'" y2="'+y1+'" stroke="#16384b" stroke-width="1.8"/>'
+      +'<path d="M'+(cx-hw-4.5)+' '+y1+' L'+(cx-hw+4)+' '+y1+' L'+(cx-hw)+' '+(y1-6)+'Z M'+(cx+hw+4.5)+' '+y1+' L'+(cx+hw-4)+' '+y1+' L'+(cx+hw)+' '+(y1-6)+'Z" fill="#16384b"/>';
+  });
+  /* open hole + TD */
+  let yTD=Y(D.maxTVD);
+  if(D.sections.length&&yTD>Y(lastShoe)+1){
+    o+='<line x1="'+(cx-ohHw)+'" y1="'+Y(lastShoe)+'" x2="'+(cx-ohHw)+'" y2="'+yTD+'" stroke="#7a8a93" stroke-width="1.2" stroke-dasharray="3 2"/><line x1="'+(cx+ohHw)+'" y1="'+Y(lastShoe)+'" x2="'+(cx+ohHw)+'" y2="'+yTD+'" stroke="#7a8a93" stroke-width="1.2" stroke-dasharray="3 2"/>'
+      +'<line x1="'+(cx-ohHw)+'" y1="'+yTD+'" x2="'+(cx+ohHw)+'" y2="'+yTD+'" stroke="#16384b" stroke-width="1.6"/>';
+  }
+  o+='<line x1="30" y1="'+Y(D.sb)+'" x2="226" y2="'+Y(D.sb)+'" stroke="#00a3c7" stroke-width=".8" stroke-dasharray="4 3"/><text x="32" y="'+(Y(D.sb)-2)+'" font-size="7" fill="#00789a">Seabed '+wsNum(D.sb,0)+' m</text>';
+  /* labels (shoes + TD), spread apart so they never overlap */
+  let lx=cx+wsHoleHw(Math.max(0,...strs.map(s=>n(s.OD))))+10;
+  let items=strs.slice().sort((a,b)=>n(a.ShoeTVD)-n(b.ShoeTVD)).map(s=>({s,y:Y(n(s.ShoeTVD))}));
+  if(Number.isFinite(D.tdMD))items.push({td:true,y:yTD});
+  wsStack(items,20,WS_PT+WS_PH+22);
+  items.forEach(it=>{
+    if(it.td){o+='<text x="'+lx+'" y="'+(it.ly+1)+'" font-size="8" font-weight="700" fill="#003b5c">TD '+wsNum(D.tdMD,0)+' mMD</text><text x="'+lx+'" y="'+(it.ly+9.5)+'" font-size="7" fill="#35505f">'+wsNum(D.tdTVD,0)+' mTVD'+(Number.isFinite(ohHole)&&ohHole>0?' &#183; '+fmt(ohHole,3).replace(/\.?0+$/,'')+'" hole':'')+'</text>';return}
+    let s=it.s,ys=Y(n(s.ShoeTVD)),typ=String(s.Type||'').toLowerCase(),name=(String(s.String||'').trim()||fmt(n(s.OD),3)).replace(/\s*(liner|casing|conductor)\s*$/i,'')+'"';
+    o+='<line x1="'+(cx+wsHoleHw(n(s.OD)))+'" y1="'+ys+'" x2="'+(lx-2)+'" y2="'+(it.ly-2)+'" stroke="#9fb4bf" stroke-width=".6"/>'
+      +'<text x="'+lx+'" y="'+(it.ly+1)+'" font-size="8" font-weight="700" fill="#102a3a">'+esc(name+(/liner/.test(typ)?' liner':typ==='conductor'?' conductor':' casing'))+'</text>'
+      +'<text x="'+lx+'" y="'+(it.ly+9.5)+'" font-size="7" fill="#35505f">'+wsNum(n(s.ShoeMD),0)+' mMD / '+wsNum(n(s.ShoeTVD),0)+' mTVD</text>';
+  });
+  return o+'</svg>';
+}
+
+function wsProfile(D){
+  if(D.wp.length<2)return wsNoData('Wellpath profile','No wellpath loaded');
+  let maxDep=Math.max(...D.wp.map(r=>r.Dep),1),x0=36,wPlot=186,sc=Math.min(wPlot/Math.max(maxDep*1.08,50),WS_PH/D.maxTVD),Y=t=>wsY(D,t),X=d=>x0+d*sc;
+  let o=wsPanelOpen('Wellpath profile','Departure vs TVD, equal scale');
+  wsAxisTicks(D).forEach(v=>{o+='<line x1="30" y1="'+Y(v)+'" x2="226" y2="'+Y(v)+'" stroke="#eef3f6"/><text x="26" y="'+(Y(v)+2.5)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="end">'+v+'</text>'});
+  let dstep=maxDep>3000?1000:maxDep>1200?500:maxDep>500?250:100;
+  for(let d=0;d<=maxDep*1.08;d+=dstep)o+='<line x1="'+X(d)+'" y1="'+WS_PT+'" x2="'+X(d)+'" y2="'+(WS_PT+WS_PH)+'" stroke="#eef3f6"/><text x="'+X(d)+'" y="'+(WS_PT+WS_PH+9)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">'+d+'</text>';
+  o+='<text x="'+(x0+wPlot/2)+'" y="'+(WS_PT+WS_PH+19)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">Departure m</text>';
+  o+='<line x1="30" y1="'+Y(D.sb)+'" x2="226" y2="'+Y(D.sb)+'" stroke="#00a3c7" stroke-width=".8" stroke-dasharray="4 3"/>';
+  let pts=D.wp.filter(r=>r.TVD<=D.maxTVD*1.02).map(r=>X(r.Dep).toFixed(1)+' '+Y(r.TVD).toFixed(1));
+  o+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="#003b5c" stroke-width="1.8" stroke-linejoin="round"/>';
+  let dep=md=>{let v=interp(D.wp,'MD','Dep',md);return Number.isFinite(v)?v:NaN};
+  let shoes=D.strings.filter(s=>n(s.ShoeMD)>0).map(s=>{let d=dep(n(s.ShoeMD)),t=mdToTvd(n(s.ShoeMD));return {s,d,t,y:Y(t)+3}}).filter(q=>Number.isFinite(q.d)&&Number.isFinite(q.t)).sort((p,q)=>p.t-q.t);
+  wsStack(shoes,9,WS_PT+WS_PH-4);
+  shoes.forEach(q=>{let right=X(q.d)<150;
+    o+='<circle cx="'+X(q.d)+'" cy="'+Y(q.t)+'" r="2.6" fill="#fff" stroke="#c0392b" stroke-width="1.4"/><text x="'+(right?X(q.d)+6:X(q.d)-6)+'" y="'+q.ly+'" font-size="7.5" fill="#102a3a" text-anchor="'+(right?'start':'end')+'">'+esc((String(q.s.String||'').trim()||fmt(n(q.s.OD),3)).replace(/\s*(liner|casing|conductor)\s*$/i,''))+'" shoe</text>'});
+  if(Number.isFinite(D.tdMD)){let d=dep(D.tdMD),t=mdToTvd(D.tdMD);if(Number.isFinite(d))o+='<circle cx="'+X(d)+'" cy="'+Y(t)+'" r="2.8" fill="#003b5c"/><text x="'+(X(d)-5)+'" y="'+(Y(t)-5)+'" font-size="7.5" font-weight="700" fill="#003b5c" text-anchor="end">TD</text>'}
+  if(Number.isFinite(D.maxInc))o+='<text x="226" y="'+(WS_PT+8)+'" font-size="7.5" fill="#35505f" text-anchor="end">Max inclination '+wsNum(D.maxInc,1)+'&#176;</text>';
+  return o+'</svg>';
+}
+
+function wsPPFG(D){
+  if(!D.ppfg.length)return wsNoData('PP / FG / MW','No pore pressure data');
+  let keys=[['PP','Pore pressure','#d62728',1.6,''],['FG','Fracture gradient','#1f77b4',1.6,''],['Shmin','Shmin','#9467bd',1,'3 2'],['Collapse','Collapse','#e08a1e',1,'3 2']].filter(k=>D.ppfg.some(r=>Number.isFinite(r[k[0]])));
+  let vals=[];keys.forEach(k=>D.ppfg.forEach(r=>{if(Number.isFinite(r[k[0]])&&r.TVD<=D.maxTVD*1.02)vals.push(r[k[0]])}));D.sections.forEach(s=>{if(n(s.MW)>0)vals.push(n(s.MW))});
+  if(!vals.length)return wsNoData('PP / FG / MW','No pore pressure data');
+  let lo=Math.max(0.8,Math.floor((Math.min(...vals)-0.04)*10)/10),hi=Math.ceil((Math.max(...vals)+0.04)*10)/10,x0=34,w=190,X=v=>x0+(v-lo)/(hi-lo)*w,Y=t=>wsY(D,t);
+  let o=wsPanelOpen('PP / FG / MW','');
+  wsAxisTicks(D).forEach(v=>{o+='<line x1="'+x0+'" y1="'+Y(v)+'" x2="226" y2="'+Y(v)+'" stroke="#eef3f6"/><text x="30" y="'+(Y(v)+2.5)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="end">'+v+'</text>'});
+  let step=(hi-lo)>0.9?0.2:0.1;for(let v=Math.ceil(lo*10)/10;v<=hi+1e-6;v+=step)o+='<line x1="'+X(v)+'" y1="'+WS_PT+'" x2="'+X(v)+'" y2="'+(WS_PT+WS_PH)+'" stroke="#eef3f6"/><text x="'+X(v)+'" y="'+(WS_PT+WS_PH+9)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">'+v.toFixed(1)+'</text>';
+  o+='<text x="'+(x0+w/2)+'" y="'+(WS_PT+WS_PH+19)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">Gradient SG (green = mud weight)</text>';
+  D.strings.forEach(s=>{let t=n(s.ShoeTVD);if(t>0)o+='<line x1="'+x0+'" y1="'+Y(t)+'" x2="226" y2="'+Y(t)+'" stroke="#16384b" stroke-width=".6" stroke-dasharray="4 3"/>'});
+  keys.forEach(k=>{let p=D.ppfg.filter(r=>Number.isFinite(r[k[0]])&&r.TVD<=D.maxTVD*1.02).map(r=>X(r[k[0]]).toFixed(1)+' '+Y(r.TVD).toFixed(1));if(p.length>1)o+='<polyline points="'+p.join(' ')+'" fill="none" stroke="'+k[2]+'" stroke-width="'+k[3]+'"'+(k[4]?' stroke-dasharray="'+k[4]+'"':'')+'/>'});
+  let secs=D.sections.filter(s=>n(s.MW)>0).slice().sort((a,b)=>n(a.FromTVD)-n(b.FromTVD)),mp='';
+  secs.forEach((s,i)=>{let x=X(n(s.MW)).toFixed(1),y0=Y(n(s.FromTVD)).toFixed(1),y1=Y(n(s.ToTVD)).toFixed(1);mp+=(i?'L':'M')+x+' '+y0+' L'+x+' '+y1+' '});
+  if(mp)o+='<path d="'+mp+'" fill="none" stroke="'+WS_OK+'" stroke-width="2.2" stroke-linejoin="miter"/>';
+  secs.forEach(s=>{o+='<text x="'+(X(n(s.MW))+3)+'" y="'+(Y((n(s.FromTVD)+n(s.ToTVD))/2))+'" font-size="7" font-weight="700" fill="'+WS_OK+'">'+fmt(n(s.MW),2)+'</text>'});
+  /* legend */
+  let lg=keys.map(k=>[k[0],k[2],k[4]]).concat([['MW',WS_OK,'']]),lxp=4;
+  lg.forEach(it=>{o+='<line x1="'+lxp+'" y1="'+(WS_PT-9)+'" x2="'+(lxp+10)+'" y2="'+(WS_PT-9)+'" stroke="'+it[1]+'" stroke-width="2"'+(it[2]?' stroke-dasharray="'+it[2]+'"':'')+'/><text x="'+(lxp+13)+'" y="'+(WS_PT-6.5)+'" font-size="6.5" fill="#35505f">'+esc(it[0])+'</text>';lxp+=22+it[0].length*3.6});
+  return o+'</svg>';
+}
+
+function wsTimeDepth(D){
+  let pts=wsTry(()=>tdPlotRows('MD'),[]);
+  if(pts.length<2)return '<svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg"><text x="200" y="100" font-size="10" fill="'+WS_MUTE+'" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">No time vs depth activities yet</text></svg>';
+  let W=400,H=200,L=40,R=46,T=22,B=26,w=W-L-R,h=H-T-B,maxDay=Math.max(1,...pts.map(p=>p.day)),maxD=Math.max(100,...pts.map(p=>p.depth),...D.strings.map(s=>n(s.ShoeMD)||0));
+  let X=d=>L+d/maxDay*w,Y=v=>T+v/maxD*h,o='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial,sans-serif">';
+  let dstep=Math.max(1,Math.ceil(maxDay/10)),vstep=maxD>5000?1000:maxD>2500?500:250;
+  for(let d=0;d<=maxDay+.001;d+=dstep)o+='<line x1="'+X(d)+'" y1="'+T+'" x2="'+X(d)+'" y2="'+(T+h)+'" stroke="#eef3f6"/><text x="'+X(d)+'" y="'+(T+h+9)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">'+d+'</text>';
+  for(let v=0;v<=maxD;v+=vstep)o+='<line x1="'+L+'" y1="'+Y(v)+'" x2="'+(L+w)+'" y2="'+Y(v)+'" stroke="#eef3f6"/><text x="'+(L-4)+'" y="'+(Y(v)+2.5)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="end">'+v+'</text>';
+  o+='<text x="'+(L+w/2)+'" y="'+(H-3)+'" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">Days from start</text><text transform="translate(8 '+(T+h/2)+') rotate(-90)" font-size="7" fill="'+WS_MUTE+'" text-anchor="middle">MD m</text>';
+  D.strings.forEach(s=>{let v=n(s.ShoeMD);if(v>0&&v<=maxD)o+='<line x1="'+L+'" y1="'+Y(v)+'" x2="'+(L+w)+'" y2="'+Y(v)+'" stroke="#16384b" stroke-width=".6" stroke-dasharray="4 3"/><text x="'+(L+w+3)+'" y="'+(Y(v)+2.5)+'" font-size="7" fill="#35505f">'+esc((String(s.String||'').trim()||fmt(n(s.OD),3)).replace(/\s*(liner|casing|conductor)\s*$/i,''))+'"</text>'});
+  let used=new Set();
+  for(let i=0;i<pts.length-1;i+=2){let a=pts[i],b=pts[i+1],c=tdPhaseColour(a.row.Phase);used.add(c);o+='<line x1="'+X(a.day)+'" y1="'+Y(a.depth)+'" x2="'+X(b.day)+'" y2="'+Y(b.depth)+'" stroke="'+c+'" stroke-width="2" stroke-linecap="round"/>'}
+  let lx=L;[['Drilling / other','#003b5c'],['Casing','#737373'],['Cementing','#00a3c7'],['Completion','#107c41'],['Flat time','#ff7f0e']].filter(it=>used.has(it[1])).forEach(it=>{o+='<line x1="'+lx+'" y1="9" x2="'+(lx+12)+'" y2="9" stroke="'+it[1]+'" stroke-width="2.2"/><text x="'+(lx+15)+'" y="11.5" font-size="7" fill="#35505f">'+it[0]+'</text>';lx+=24+it[0].length*3.4});
+  return o+'</svg>';
+}
+
+function wsStatusKind(s){s=String(s||'').toUpperCase();return s==='OK'?'ok':(s==='LOW'||s==='LOW MARGIN'||s==='CHECK RIH')?'bad':s==='N/A'||s==='-'?'mute':'warn'}
+function wsMiniTable(head,rows,empty){
+  if(!rows.length)return '<p class="muted">'+esc(empty)+'</p>';
+  return '<table><thead><tr>'+head.map((h,i)=>'<th'+(i?' class="num"':'')+'>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map((c,i)=>'<td'+(i&&i<r.length-1?' class="num"':'')+'>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+}
+
+function wsReportHtml(D){
+  let g=D.g,when=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),f0=v=>wsNum(v,0),f1=v=>wsNum(v,1),f2=v=>wsNum(v,2);
+  let name=String(g.caseName||'').trim()||'Unnamed well';
+  /* ---- casing / hole program: one row per hole section with the string run in it ---- */
+  let progRows=D.sections.slice().sort((a,b)=>n(a.FromMD)-n(b.FromMD)).map(sec=>{
+    let st=D.strings.find(s=>Math.abs(n(s.ShoeMD)-n(sec.ToMD))<=1);
+    return [esc(fmt(n(sec.Hole),3).replace(/\.?0+$/,''))+'"',f0(n(sec.FromMD))+' &ndash; '+f0(n(sec.ToMD)),f0(n(sec.ToTVD)),st?esc((String(st.String||'').trim()||fmt(n(st.OD),3))+' '+(String(st.Type||'')||'casing').toLowerCase()):'Open hole to TD',st?f0(n(st.ShoeMD))+' / '+f0(n(st.ShoeTVD)):WS_DASH,st&&n(st.TopCementMD)>0?f0(n(st.TopCementMD)):WS_DASH,n(sec.MW)>0?f2(n(sec.MW)):WS_DASH];
+  });
+  let progHtml=progRows.length?'<table class="prog"><thead><tr><th>Hole</th><th>Interval mMD</th><th class="num">TD mTVD</th><th>String</th><th class="num">Shoe mMD / mTVD</th><th class="num">Cement top mMD</th><th class="num">MW SG</th></tr></thead><tbody>'+progRows.map(r=>'<tr>'+r.map((c,i)=>'<td'+(i===2||i>=4?' class="num"':'')+'>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>':'<p class="muted">No hole sections defined yet.</p>';
+  /* ---- the three checks ---- */
+  let ktRows=D.kt.map(({sec,r})=>[esc(fmt(n(sec.Hole),3).replace(/\.?0+$/,''))+'"',f1(r.KickTolerance_m3),f1(r.MinimumRequired_m3),wsPill(r.Status==='INVALID INPUT'?'INVALID':r.Status,wsStatusKind(r.Status==='INVALID INPUT'?'x':r.Status))]);
+  let ecdRows=D.ecd.map(r=>[esc(fmt(n(r.Hole_in),3).replace(/\.?0+$/,''))+'"',typeof r.ECD_at_shoe_SG==='number'?f2(r.ECD_at_shoe_SG):WS_DASH,typeof r.FG_at_shoe_SG==='number'?f2(r.FG_at_shoe_SG):WS_DASH,wsPill(r.Status,wsStatusKind(r.Status))]);
+  let tdRowsH=D.tdr.map(({sec,r})=>{let ok=Number.isFinite(r.hookloadRIH_t)&&Number.isFinite(r.surfaceTorque_kNm),st=!ok?'N/A':r.rihStringTensionNegative?'CHECK RIH':(r.warnings&&r.warnings.length?'REVIEW':'OK');return [esc(fmt(n(sec.Hole),3).replace(/\.?0+$/,''))+'"',f0(r.hookloadRIH_t),f0(r.hookloadPOOH_t),f1(r.surfaceTorque_kNm),wsPill(st,wsStatusKind(st))]});
+  let ktHtml=wsMiniTable(['Hole','KT m&sup3;','Min m&sup3;','Status'],ktRows,'No section with hole size 17.5" or smaller.');
+  let ecdHtml=wsMiniTable(['Hole','ECD shoe','FG shoe','Status'],ecdRows,'Needs hole sections and the BHA table.');
+  let tdHtml=wsMiniTable(['Hole','RIH t','POOH t','Torque kNm','Status'],tdRowsH,'Needs hole sections, wellpath and BHA table.');
+  /* ---- time + cost ---- */
+  let tot=D.tdRows.reduce((a,r)=>a+r.DurationDays,0),drill=D.tdRows.filter(r=>/drill/i.test(String(r.Phase))).reduce((a,r)=>a+r.DurationDays,0);
+  let t=D.hasCost?D.cost.t:null,c=D.hasCost?D.cost.c:null;
+  let cRow=(lab,d,cost,cls)=>'<tr class="'+(cls||'')+'"><td>'+lab+'</td><td class="num">'+d+'</td><td class="num">'+cost+'</td></tr>';
+  let costHtml=D.hasCost?'<table><thead><tr><th></th><th class="num">Days</th><th class="num">MNOK</th></tr></thead><tbody>'
+    +cRow('Net activities',f1(t.netDays),f1(t.netCost))
+    +cRow('NPT ('+f1(n(c.npt))+' %)',f1(t.nptDays),f1(t.nptCost),'sub')+cRow('WOW ('+f1(n(c.wow))+' %)',f1(t.wowDays),f1(t.wowCost),'sub')
+    +cRow('Complexity ('+f1(n(c.ci))+' %)',f1(t.ciDays),f1(t.ciCost),'sub')+cRow('Cost uncertainty ('+f1(n(c.unc))+' %)',WS_DASH,f1(t.uncCost),'sub')
+    +cRow('Budget (base)',f1(t.budgetDays),f1(t.budgetCost),'bud')
+    +cRow('Contingency ('+f1(n(c.cont))+' %, not in base)',WS_DASH,f1(t.contCost),'cont')+'</tbody></table>'
+    :'<p class="muted">Time &amp; Cost tab not filled in yet.</p>';
+  let assump=D.hasCost?ceAssumptionLines(c):[];
+  if(assump.length)costHtml+='<p class="muted" style="margin:4px 0 1px"><b>Assumptions</b></p><ul>'+assump.slice(0,5).map(l=>'<li>'+esc(l.length>120?l.slice(0,117)+'...':l)+'</li>').join('')+(assump.length>5?'<li class="muted">+ '+(assump.length-5)+' more on the Time &amp; Cost tab</li>':'')+'</ul>';
+  /* ---- design checks ---- */
+  let cnt={ok:0,warn:0,fail:0};D.checks.forEach(r=>cnt[r.status]++);
+  let bad=D.checks.filter(r=>r.status!=='ok').sort((a,b)=>(a.status==='fail'?0:1)-(b.status==='fail'?0:1));
+  let overall=cnt.fail?'bad':cnt.warn?'warn':'ok';
+  let checksHtml=D.checks.length?'<div class="chk">'+wsPill(cnt.fail?cnt.fail+' failed':cnt.warn?cnt.warn+' to review':'All passed',overall)+' <span class="muted">'+cnt.ok+' passed &middot; '+cnt.warn+' to review &middot; '+cnt.fail+' failed</span></div>'
+    +(bad.length?'<ul>'+bad.slice(0,6).map(r=>'<li><b>'+esc(r.check)+'</b> '+wsPill(r.status==='fail'?'Fail':'Review',r.status==='fail'?'bad':'warn')+' <span class="muted">'+esc(String(r.detail||'').length>170?String(r.detail).slice(0,167)+'...':String(r.detail||''))+'</span></li>').join('')+(bad.length>6?'<li class="muted">+ '+(bad.length-6)+' more on the Checks tab</li>':'')+'</ul>':''):'<p class="muted">No checks available.</p>';
+  /* ---- KPI strip ---- */
+  let kpi=(lab,val,unit,cls)=>'<div class="kpi '+(cls||'')+'"><div class="l">'+lab+'</div><div class="v">'+val+(unit?'<span> '+unit+'</span>':'')+'</div></div>';
+  let kpis=kpi('TD',f0(D.tdMD),'mMD')+kpi('TD',f0(D.tdTVD),'mTVD')+kpi('Water depth',f0(n(g.waterDepth)),'m')+kpi('Max inclination',Number.isFinite(D.maxInc)?f1(D.maxInc)+'&deg;':WS_DASH,'')
+    +kpi('Planned time',D.tdRows.length?f1(tot):WS_DASH,'days')+kpi('Budget (base)',D.hasCost?f0(t.budgetCost):WS_DASH,'MNOK','main');
+  let by=String(g.wsBy||'').trim(),rev=String(g.wsRev||'').trim(),notes=String(g.wsNotes||'').trim();
+  let panels=[wsSketch(D),wsProfile(D),wsPPFG(D)].map(s=>'<div class="panel">'+s+'</div>').join('');
+  return '<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>'+esc(name+' - well summary')+'</title><style>'
++'@page{size:A4;margin:8mm}*{box-sizing:border-box}'
++'body{margin:0;font:8.6px/1.38 "Segoe UI Variable Text","Segoe UI",system-ui,Roboto,Arial,sans-serif;color:#102a3a;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
++'@media screen{body{width:194mm;padding:8mm}}'
++'.hdr{background:#003b5c;color:#fff;border-radius:6px;padding:9px 13px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}'
++'.hdr h1{margin:0;font-size:18px;letter-spacing:-.01em}.hdr .sub{margin-top:1px;font-size:9.5px;color:#cfeaf2}.hdr .meta{text-align:right;font-size:8.2px;color:#cfeaf2;line-height:1.5}'
++'.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:6px 0 4px}'
++'.kpi{border:1px solid #cfe4ec;border-radius:6px;padding:4px 7px;background:#f7fcfe}.kpi .l{font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#607987}.kpi .v{font-size:14px;font-weight:700;color:#003b5c;margin-top:0}.kpi .v span{font-size:8px;font-weight:600;color:#607987}'
++'.kpi.main{background:#003b5c;border-color:#003b5c}.kpi.main .l,.kpi.main .v span{color:#bfe3ee}.kpi.main .v{color:#fff}'
++'h2{font-size:9.4px;margin:7px 0 3px;padding-bottom:2px;border-bottom:1.5px solid #003b5c;color:#003b5c;letter-spacing:.01em}'
++'.panels{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.panel{border:1px solid #dbe9ef;border-radius:6px;padding:2px 3px;background:#fff}.panel svg{display:block;width:100%;height:auto}'
++'table{width:100%;border-collapse:collapse;font-size:8px}'
++'th{background:#eef8fc;text-align:left;font-weight:600;color:#33566a;padding:2px 4px;border-bottom:1px solid #003b5c;font-size:7px;text-transform:uppercase;letter-spacing:.03em}'
++'td{padding:2px 4px;border-bottom:1px solid #e1edf2;vertical-align:middle}th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}'
++'table.prog{table-layout:fixed}.prog th:nth-child(1){width:8%}.prog th:nth-child(2){width:17%}.prog th:nth-child(3){width:11%}.prog th:nth-child(4){width:24%}.prog th:nth-child(5){width:18%}.prog th:nth-child(6){width:13%}.prog th:nth-child(7){width:9%}'
++'.muted{color:#607987}p.muted{margin:2px 0}tr{break-inside:avoid}'
++'.three{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.three h2{margin-top:6px}'
++'.two{display:grid;grid-template-columns:1.55fr 1fr;gap:10px}.two svg{display:block;width:100%;height:auto}'
++'.pill{display:inline-block;border:1px solid;border-radius:8px;padding:0 5px;font-size:7px;font-weight:700;line-height:1.5;white-space:nowrap}'
++'tr.sub td:first-child{padding-left:10px;color:#35505f}tr.bud td{font-weight:700;background:#eef8fc;border-top:1px solid #003b5c}tr.cont td{color:#607987;font-style:italic}'
++'.chk{margin:2px 0}ul{margin:2px 0 0;padding-left:13px}li{margin:1px 0}'
++'.notes{border:1px solid #cfe4ec;border-radius:6px;background:#f7fcfe;padding:4px 7px;margin-top:5px;white-space:pre-wrap}'
++'.foot{margin-top:6px;padding-top:3px;border-top:1px solid #cfe4ec;font-size:7.2px;color:#607987;display:flex;justify-content:space-between;gap:10px}'
++'</style></head><body><div id="wrap">'
++'<div class="hdr"><div><h1>Well summary</h1><div class="sub">'+esc(name)+'</div></div><div class="meta">'+(by?'Prepared by '+esc(by)+'<br>':'')+(rev?'Revision / note: '+esc(rev)+'<br>':'')+'Date '+esc(when)+'</div></div>'
++'<div class="kpis">'+kpis+'</div>'
++'<h2>Well overview</h2><div class="panels">'+panels+'</div>'
++'<h2>Hole sections and casing program</h2>'+progHtml
++'<div class="three"><div><h2>Kick tolerance</h2>'+ktHtml+'</div><div><h2>ECD vs fracture gradient</h2>'+ecdHtml+'</div><div><h2>Torque &amp; drag at section TD</h2>'+tdHtml+'</div></div>'
++'<div class="two"><div><h2>Time vs depth'+(D.tdRows.length?' &mdash; '+f1(tot)+' days planned'+(drill>0?', '+f1(drill)+' drilling':''):'')+'</h2>'+wsTimeDepth(D)+'</div><div><h2>Time &amp; cost summary</h2>'+costHtml+'</div></div>'
++'<h2>Design checks</h2>'+checksHtml
++(notes?'<div class="notes"><b>Remarks.</b> '+esc(notes)+'</div>':'')
++'<div class="foot"><span>Early-phase planning overview generated by DrillWise from the current inputs. It does not replace engineering review. Casing sketch is not to scale horizontally.</span><span>'+esc(when)+'</span></div>'
++'</div><script>(function(){var w=document.getElementById("wrap"),max=270*96/25.4,h=w.offsetHeight;if(h>max)w.style.zoom=max/h})()<\/script></body></html>';
+}
+
+function wsSave(){let g=state.general;g.wsBy=$('wsBy').value;g.wsRev=$('wsRev').value;g.wsNotes=$('wsNotes').value;wsRefresh()}
+function wsRefresh(){
+  let D=wsData(),f=$('wsPreview');if(!f)return;
+  f.srcdoc=wsReportHtml(D);
+  let m=$('wsMissing');if(m)m.innerHTML=D.missing.length?'<b>Not on the sheet yet:</b> '+D.missing.map(esc).join('; ')+'.':'<b>All sections are filled in.</b>';
+}
+function wsPrint(){
+  let D=wsData(),html=wsReportHtml(D),title=(String(D.g.caseName||'DrillWise').trim()||'DrillWise')+' - well summary';
+  let f=document.createElement('iframe');
+  f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;left:-9999px;top:0;width:210mm;height:297mm;border:0';
+  document.body.appendChild(f);
+  let d=f.contentWindow.document;d.open();d.write(html);d.close();
+  let oldTitle=document.title,closed=false;document.title=title;
+  let done=()=>{if(closed)return;closed=true;document.title=oldTitle;setTimeout(()=>f.remove(),500)};
+  f.contentWindow.onafterprint=done;setTimeout(done,180000);
+  let st=$('wsStatus');
+  setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();if(st)st.textContent='In the print dialog, choose "Save as PDF" as the destination and keep margins on Default.'}catch(e){if(st)st.textContent='Could not open the print dialog: '+(e&&e.message||e);done()}},300);
+}
+function renderSummary(){
+  let g=state.general||{};
+  $('page-summary').innerHTML='<div class="card"><h3>Well summary (one page)</h3><p class="note">A one-page A4 overview of the whole well: casing sketch, wellpath, PP / FG / mud weight, kick tolerance, ECD, torque &amp; drag, time vs depth, time &amp; cost and the design checks. It is built from the other tabs and always shows their current numbers, so fill those in first. Parts that are not filled in yet are left out and listed below.</p>'
+    +'<div class="grid3"><label>Prepared by<input id="wsBy" value="'+esc(g.wsBy||'')+'" onchange="wsSave()"></label><label>Revision / note<input id="wsRev" value="'+esc(g.wsRev||'')+'" onchange="wsSave()"></label><label>Remarks (printed at the bottom)<input id="wsNotes" value="'+esc(g.wsNotes||'')+'" onchange="wsSave()"></label></div>'
+    +'<div class="actions"><button class="dark" onclick="wsPrint()">Print / Save as PDF</button><button onclick="wsRefresh()">Refresh preview</button></div>'
+    +'<div id="wsStatus" class="note"></div><div id="wsMissing" class="note" style="margin-top:6px"></div></div>'
+    +'<div class="card"><h3>Preview</h3><div style="overflow:auto;border:1px solid var(--line,#cfe4ec);border-radius:10px;background:#e9eff2;padding:10px"><iframe id="wsPreview" title="Well summary preview" style="display:block;margin:0 auto;width:210mm;height:297mm;border:0;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18)"></iframe></div></div>';
+  wsRefresh();
+}
 
 if(!state.timeDepth)state.timeDepth=[];render();</script><button id="cornerSmiley" title="Click for a drilling joke" onclick="newDrillingJoke()">🙂</button><div id="cornerJoke"></div><div id="plotTooltip" class="plot-tooltip"></div></body></html>
