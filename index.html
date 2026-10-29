@@ -2474,7 +2474,7 @@ function renderCost(){
 <label>Estimate date${ceIn('estDate',{text:true})}</label>
 </div>
 <div id="ce_metrics" class="grid3" style="margin-top:12px;grid-template-columns:repeat(4,minmax(0,1fr))"></div>
-<div class="actions"><button onclick="renderCost()">Refresh from well data</button><button onclick="ceDownloadCSV()">Download CSV</button><button onclick="ceReset()">Reset to blank defaults</button></div>
+<div class="actions"><button onclick="renderCost()">Refresh from well data</button><button class="dark" onclick="ceExportExcel()">Export Excel</button><button class="dark" onclick="cePrintReport()">Export PDF</button><button onclick="ceDownloadCSV()">Download CSV</button><button onclick="ceReset()">Reset to blank defaults</button><span class="note" id="ce_exportStatus" style="align-self:center"></span></div>
 </div>
 
 ${chap(1,'Well basis','Pulled automatically from the other tabs')}
@@ -2584,15 +2584,17 @@ ${crow('Time vs Depth',ctx.tvdTotalDays>0?fmt(ctx.tvdDrillDays,1)+' drilling day
   ceChart(r);
 }
 
-function ceChart(r){
+function ceChartHtml(r,interactive){
   const CA='#1d6a96',CB='#e0892c';let t=r.t,items=r.acts.filter(a=>a.cost>0.0001).map(a=>[a.label,a.cost,CA]).concat([['NPT',t.nptCost,CB],['WOW',t.wowCost,CB],['Complexity',t.ciCost,CB],['Phase uncertainty',t.uncCost,CB]]).filter(x=>x[1]>0.0001);
-  if(!items.length){$('ce_chart').innerHTML='<p class="note">No cost yet.</p>';return;}
+  if(!items.length)return '<p class="note">No cost yet.</p>';
   let W=640,rowH=30,L=150,R=80,T=10,H=T+items.length*rowH+30,max=Math.max(...items.map(x=>x[1])),w=W-L-R;
   let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:white;display:block" xmlns="http://www.w3.org/2000/svg">`;
-  items.forEach((x,i)=>{let y=T+i*rowH,bw=Math.max(1,x[1]/max*w);svg+=`<text x="${L-8}" y="${y+19}" text-anchor="end" font-family="Segoe UI" font-size="12" fill="#102a3a">${esc(x[0])}</text><rect x="${L}" y="${y+5}" width="${bw}" height="${rowH-10}" rx="4" fill="${x[2]}" data-tip="${esc(x[0]+': '+fmt(x[1],1)+' MNOK ('+fmt(x[1]/t.budgetCost*100,1)+' % of budget)')}" onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"/><text x="${L+bw+6}" y="${y+19}" font-family="Segoe UI" font-size="12" fill="#607987">${fmt(x[1],0)}</text>`;});
+  items.forEach((x,i)=>{let y=T+i*rowH,bw=Math.max(1,x[1]/max*w);svg+=`<text x="${L-8}" y="${y+19}" text-anchor="end" font-family="Segoe UI" font-size="12" fill="#102a3a">${esc(x[0])}</text><rect x="${L}" y="${y+5}" width="${bw}" height="${rowH-10}" rx="4" fill="${x[2]}" data-tip="${esc(x[0]+': '+fmt(x[1],1)+' MNOK ('+fmt(x[1]/t.budgetCost*100,1)+' % of budget)')}"${interactive?' onmousemove="showPlotTip(event,this.dataset.tip)" onmouseleave="hidePlotTip()"':''}/><text x="${L+bw+6}" y="${y+19}" font-family="Segoe UI" font-size="12" fill="#607987">${fmt(x[1],0)}</text>`;});
   svg+=`<text x="${L}" y="${H-8}" font-family="Segoe UI" font-size="11" fill="#607987">MNOK - total budget ${fmt(t.budgetCost,0)} MNOK</text></svg>`;
-  $('ce_chart').innerHTML=`<div class="ce-legend"><span><i style="background:${CA}"></i>Activities (net)</span><span><i style="background:${CB}"></i>Allowances</span></div>`+svg;
+  return `<div class="ce-legend"><span><i style="background:${CA}"></i>Activities (net)</span><span><i style="background:${CB}"></i>Allowances</span></div>`+svg;
 }
+
+function ceChart(r){$('ce_chart').innerHTML=ceChartHtml(r,true)}
 
 function ceDownloadCSV(){
   let c=ceCfg(),ctx=ceContext(),r=ceCompute(c,ctx),t=r.t,rows=[];
@@ -2608,5 +2610,201 @@ function ceDownloadCSV(){
   let csv=rows.map(r=>r.map(q).join(',')).join('\n');
   let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=((state.general&&state.general.caseName)||'DrillWise')+'_time_cost_estimate.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
 }
+
+/* ---------- Export: a formatted Excel workbook and a printable PDF report ----------
+   Excel is written with ExcelJS (SheetJS, used for reading uploads, cannot style cells). It is
+   loaded only when you click Export, pinned to an exact version and integrity-checked, so a
+   compromised CDN file would be refused. The PDF is a purpose-built A4 report sent to the
+   browser's print dialog ("Save as PDF"), so it needs no library and works offline. */
+const CE_EXCELJS_URL='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+const CE_EXCELJS_SRI='sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz';
+function ensureExcelJS(){
+  if(window.ExcelJS)return Promise.resolve(window.ExcelJS);
+  return new Promise((res,rej)=>{
+    let sc=document.createElement('script');
+    sc.src=CE_EXCELJS_URL;sc.integrity=CE_EXCELJS_SRI;sc.crossOrigin='anonymous';sc.async=true;
+    sc.onload=()=>window.ExcelJS?res(window.ExcelJS):rej(new Error('the Excel writer did not initialise'));
+    sc.onerror=()=>rej(new Error('could not load the Excel writer (it needs an internet connection the first time)'));
+    document.head.appendChild(sc);
+  });
+}
+function ceStatus(msg,bad){let e=$('ce_exportStatus');if(e){e.textContent=msg||'';e.className='note'+(bad?' bad':'')}}
+function ceFileBase(){return String((state.general&&state.general.caseName)||'DrillWise').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'')||'DrillWise'}
+function ceSnapshot(){let c=ceCfg(),ctx=ceContext(),r=ceCompute(c,ctx);return {c,ctx,r,t:r.t,caseName:String((state.general&&state.general.caseName)||''),stamp:new Date()}}
+function ceBasisLabel(k){return (CE_RATES.find(x=>x[0]===k)||[k,k])[1]}
+function ceAssumptionLines(c){return String(c.assumptions||'').split('\n').map(l=>l.trim()).filter(Boolean)}
+
+async function ceExportExcel(){
+  ceStatus('Preparing the Excel workbook...');
+  try{
+    let EJ=await ensureExcelJS(), S=ceSnapshot(), c=S.c, r=S.r, t=S.t, dep=r.dep, ctx=S.ctx;
+    let num=v=>{v=n(v);return Number.isFinite(v)?v:null};
+    let when=S.stamp.toISOString().slice(0,10);
+    const NAVY='FF003B5C',PALE='FFEEF8FC',GREY='FF607987',INK='FF102A3A',LINE='FFCFE4EC',WHITE='FFFFFFFF';
+    let fill=argb=>({type:'pattern',pattern:'solid',fgColor:{argb}});
+    let wb=new EJ.Workbook();wb.creator='DrillWise';wb.created=S.stamp;
+    let sheet=(name,widths)=>{let ws=wb.addWorksheet(name,{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.5,right:.5,top:.6,bottom:.6,header:.3,footer:.3}}});ws.columns=widths.map(w=>({width:w}));return ws};
+    let band=(ws,row,text,cols)=>{ws.mergeCells(row,1,row,cols);let cell=ws.getCell(row,1);cell.value=text;cell.font={bold:true,color:{argb:WHITE},size:11};cell.fill=fill(NAVY);cell.alignment={vertical:'middle',indent:1};ws.getRow(row).height=20};
+    let head=(ws,row,labels,rightFrom)=>{labels.forEach((l,i)=>{let cell=ws.getCell(row,i+1);cell.value=l;cell.font={bold:true,color:{argb:INK}};cell.fill=fill(PALE);cell.border={bottom:{style:'medium',color:{argb:NAVY}}};cell.alignment={vertical:'middle',wrapText:true,horizontal:i>=rightFrom?'right':'left'}});ws.getRow(row).height=30};
+    let line=(ws,row,vals,fmts,opts={})=>{vals.forEach((v,i)=>{let cell=ws.getCell(row,i+1);cell.value=v;if(fmts&&fmts[i])cell.numFmt=fmts[i];cell.border={bottom:{style:'thin',color:{argb:LINE}}};cell.font={bold:!!opts.bold,italic:!!opts.italic,color:{argb:opts.grey?GREY:INK}};cell.alignment={vertical:'top',wrapText:i===(opts.wrapCol),horizontal:(typeof v==='number')?'right':'left'};if(opts.fill)cell.fill=fill(opts.fill);if(opts.top)cell.border={top:{style:'medium',color:{argb:NAVY}},bottom:{style:'thin',color:{argb:LINE}}}})};
+    let D1='0.0',D2='0.00',M0='#,##0',M1='#,##0.0';
+
+    /* --- Summary --- */
+    let ws=sheet('Summary',[46,16,18,44]);
+    ws.mergeCells('A1:D1');ws.getCell('A1').value='Time & Cost Estimate';ws.getCell('A1').font={bold:true,size:18,color:{argb:NAVY}};ws.getRow(1).height=30;
+    ws.mergeCells('A2:D2');ws.getCell('A2').value=(S.caseName||'Unnamed well')+'  |  Estimate class '+c.estClass;ws.getCell('A2').font={bold:true,size:12,color:{argb:INK}};
+    ws.mergeCells('A3:D3');ws.getCell('A3').value='Estimate date '+c.estDate+'  |  Planned spud '+c.spudYear+'  |  Generated by DrillWise '+when;ws.getCell('A3').font={size:9,color:{argb:GREY}};
+    band(ws,5,'Key results',4);
+    let kr=[['Budget time (days)',t.budgetDays,D1,true],['Budget cost, base (MNOK)',t.budgetCost,M0,true],['Contingency '+fmt(c.cont,1)+' % - information only (MNOK)',t.contCost,M0,false],['Base + contingency (MNOK)',t.budgetCost+t.contCost,M0,false]];
+    kr.forEach((x,i)=>{line(ws,6+i,[x[0],x[1]],[null,x[2]],{bold:x[3]});ws.getCell(6+i,2).font={bold:x[3],size:x[3]?13:11,color:{argb:x[3]?NAVY:INK}}});
+    band(ws,11,'Time & cost summary',4);
+    head(ws,12,['Item','Time (days)','Cost (MNOK)','Note'],1);
+    let sum=[
+      ['Total net (activity build-up)',t.netDays,t.netCost,'Sum of the Activity build-up sheet',{bold:true}],
+      ['  + NPT ('+fmt(c.npt,1)+' %)',t.nptDays,t.nptCost,'Percentage of net days',{}],
+      ['  + WOW ('+fmt(c.wow,1)+' %)',t.wowDays,t.wowCost,'Percentage of net days',{}],
+      ['  + Complexity index ('+fmt(c.ci,1)+' %)',t.ciDays,t.ciCost,'Costed at the drilling spread rate',{}],
+      ['  + Cost phase uncertainty ('+fmt(c.unc,1)+' %)',null,t.uncCost,'On net + NPT + WOW + complexity cost',{}],
+      ['Budget time / cost',t.budgetDays,t.budgetCost,'Base estimate',{bold:true,fill:PALE,top:true}],
+      ['Contingency ('+fmt(c.cont,1)+' %, not included in base)',null,t.contCost,'For information only',{italic:true,grey:true}]
+    ];
+    sum.forEach((x,i)=>line(ws,13+i,[x[0],x[1],x[2],x[3]],[null,D1,M1,null],x[4]));
+    let row=21;band(ws,row,'Assumptions',4);row++;
+    let lines=ceAssumptionLines(c);
+    if(!lines.length)lines=['No assumptions recorded.'];
+    lines.forEach(l=>{ws.mergeCells(row,1,row,4);let cell=ws.getCell(row,1);cell.value=l;cell.alignment={wrapText:true,vertical:'top',indent:1};cell.font={color:{argb:INK},italic:l==='No assumptions recorded.'};ws.getRow(row).height=Math.max(16,15*Math.ceil(l.length/105));row++});
+    row++;ws.mergeCells(row,1,row,4);ws.getCell(row,1).value='Early-phase estimate. Contingency is shown for information only and is not part of the base. Spread rate = rig rate x FX + spread adder.';ws.getCell(row,1).font={size:9,italic:true,color:{argb:GREY}};ws.getCell(row,1).alignment={wrapText:true,vertical:'top'};ws.getRow(row).height=26;
+
+    /* --- Activity build-up --- */
+    let wa=sheet('Activity build-up',[30,16,11,13,14,11,12,11,12,13]);
+    wa.mergeCells('A1:J1');wa.getCell('A1').value='Activity build-up';wa.getCell('A1').font={bold:true,size:14,color:{argb:NAVY}};wa.getRow(1).height=24;
+    wa.mergeCells('A2:J2');wa.getCell('A2').value=(S.caseName||'Unnamed well')+'  |  net days x spread rate, with NPT / WOW / complexity as a percentage of net days';wa.getCell('A2').font={size:9,color:{argb:GREY}};
+    head(wa,4,['Activity','Spread rate basis','Net days','Rate (MNOK/day)','Net cost (MNOK)','NPT days','NPT cost (MNOK)','WOW days','WOW cost (MNOK)','Complexity days'],2);
+    r.acts.forEach((a,i)=>line(wa,5+i,[a.label,ceBasisLabel(a.basis),a.days,a.rate/1e6,a.cost,a.nptDays,a.nptCost,a.wowDays,a.wowCost,a.ciDays],[null,null,D2,D2,M1,D2,M1,D2,M1,D2]));
+    let tr=5+r.acts.length;
+    line(wa,tr,['Total','',t.netDays,null,t.netCost,t.nptDays,t.nptCost,t.wowDays,t.wowCost,t.ciDays],[null,null,D2,null,M1,D2,M1,D2,M1,D2],{bold:true,fill:PALE,top:true});
+    wa.views=[{state:'frozen',ySplit:4,showGridLines:false}];
+    wa.mergeCells(tr+2,1,tr+2,10);wa.getCell(tr+2,1).value='Complexity cost ('+fmt(t.ciCost,1)+' MNOK) is the total complexity days costed at the drilling spread rate, so it is shown on the Summary sheet rather than per activity.';wa.getCell(tr+2,1).font={size:9,italic:true,color:{argb:GREY}};
+
+    /* --- Inputs --- */
+    let wi=sheet('Inputs',[46,18,12,56]);
+    wi.mergeCells('A1:D1');wi.getCell('A1').value='Inputs';wi.getCell('A1').font={bold:true,size:14,color:{argb:NAVY}};wi.getRow(1).height=24;
+    let ir=3;
+    let section=(title)=>{band(wi,ir,title,4);ir++;head(wi,ir,['Parameter','Value','Unit','Source / reference'],1);ir++};
+    let inp=(label,val,unit,src,numFmt)=>{line(wi,ir,[label,val,unit||'',src||''],[null,numFmt||null,null,null],{wrapCol:3});ir++};
+    section('Well data (from DrillWise)');
+    inp('Seabed (water depth + air gap)',ctx.hasSeabed?ctx.seabed:null,'m','Inputs tab',M0);
+    inp('TD',Number.isFinite(dep.td)?dep.td:null,'m MD',dep.tdSrc,M0);
+    inp('Start of drilled interval',Number.isFinite(dep.start)?dep.start:null,'m MD',dep.startSrc,M0);
+    inp('Drilled interval',Number.isFinite(dep.interval)?dep.interval:null,'m','',M0);
+    inp('Casing / liner strings',ctx.nStrings,'',ctx.strings.map(x=>(x.String||x.Label)+' @ '+fmt(x.ShoeMD,0)+' m').join(', '),'0');
+    ir++;section('Rig, spread & currency');
+    inp('Rig type',c.rigType,'','');
+    inp('Rig rate',num(c.rigRate),'USD/day','',M0);
+    inp('FX NOK/USD',num(c.fxUsd),'','','0.00');
+    inp('FX NOK/EUR',num(c.fxEur),'','','0.00');
+    CE_RATES.forEach(([k,lab])=>{inp('Spread adder - '+lab,num(c.adders[k]),'MNOK/day','',D2);inp('Spread rate - '+lab,r.rates[k]/1e6,'MNOK/day','Rig rate x FX + adder',D2)});
+    ir++;section('Drilling performance');
+    inp('Drilling days',r.drillDays,'days',r.drillSrc,D2);
+    inp('m/day dry hole, excl. C&L, incl. NPT & WOW',num(c.mpd),'m/day',c.mpdSource,'0');
+    inp('P50 NPT',num(c.npt),'%',c.nptSource,D1);
+    inp('P50 WOW (all year)',num(c.wow),'%',c.wowSource,D1);
+    inp('m/day dry hole, excl. NPT & WOW',Number.isFinite(r.netMpd)?r.netMpd:null,'m/day','Calculated',D1);
+    inp('Complexity index',num(c.ci),'%',c.ciSource,D1);
+    inp('Phase cost uncertainty',num(c.unc),'%','',D1);
+    inp('Contingency (not in base)',num(c.cont),'%','',D1);
+    ir++;section('Scope');
+    CE_SCOPE.forEach(([k,lab])=>inp(lab,c.choice[k],'','Net days set in the Activity build-up sheet'));
+
+    let buf=await wb.xlsx.writeBuffer();
+    let blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=ceFileBase()+'_time_cost_estimate.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+    ceStatus('Excel workbook downloaded.');
+  }catch(e){ceStatus('Excel export failed: '+(e&&e.message||e)+'. The CSV download works offline.',true)}
+}
+
+function ceReportHtml(S){
+  let c=S.c,r=S.r,t=S.t,ctx=S.ctx,dep=r.dep;
+  let f1=v=>fmt(v,1),f2=v=>fmt(v,2),f0=v=>fmt(v,0);
+  let when=S.stamp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  let sRow=(lab,days,cost,note,cls)=>`<tr class="${cls||''}"><td>${lab}</td><td class="num">${days}</td><td class="num">${cost}</td><td class="muted">${note||''}</td></tr>`;
+  let actRows=r.acts.filter(a=>a.days>0||a.cost>0);
+  let actHtml=actRows.length?actRows.map(a=>`<tr><td><b>${esc(a.label)}</b></td><td>${esc(ceBasisLabel(a.basis))}</td><td class="num">${f2(a.days)}</td><td class="num">${f2(a.rate/1e6)}</td><td class="num">${f1(a.cost)}</td><td class="num">${f2(a.nptDays)}</td><td class="num">${f2(a.wowDays)}</td><td class="num">${f2(a.ciDays)}</td></tr>`).join('')+`<tr class="tot"><td>Total</td><td></td><td class="num">${f2(t.netDays)}</td><td></td><td class="num">${f1(t.netCost)}</td><td class="num">${f2(t.nptDays)}</td><td class="num">${f2(t.wowDays)}</td><td class="num">${f2(t.ciDays)}</td></tr>`:`<tr><td colspan="8" class="muted">No activities have net days yet.</td></tr>`;
+  let lines=ceAssumptionLines(c);
+  let assumpHtml=lines.length?`<ul>${lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:'<p class="muted">No assumptions recorded.</p>';
+  let inRow=(lab,val,src)=>`<tr><td>${lab}</td><td>${val}</td><td class="muted">${src?esc(src):''}</td></tr>`;
+  let inputs=[
+    inRow('Rig',esc(c.rigType)+(n(c.rigRate)>0?', '+f0(n(c.rigRate))+' USD/day':''),''),
+    inRow('FX',f2(n(c.fxUsd))+' NOK/USD, '+f2(n(c.fxEur))+' NOK/EUR','Finance to advise'),
+    inRow('Spread rate (MNOK/day)',CE_RATES.map(([k,l])=>esc(l)+' '+f2(r.rates[k]/1e6)).join(' &middot; '),'Rig rate x FX + spread adder'),
+    inRow('TD',Number.isFinite(dep.td)?f0(dep.td)+' m MD':'&ndash;',dep.tdSrc),
+    inRow('Drilled interval',Number.isFinite(dep.interval)?f0(dep.interval)+' m from '+f0(dep.start)+' m MD':'&ndash;',dep.startSrc),
+    inRow('Drilling days',f2(r.drillDays)+' d',r.drillSrc),
+    inRow('m/day dry hole, incl. NPT &amp; WOW',f0(n(c.mpd)),c.mpdSource),
+    inRow('P50 NPT / P50 WOW',f1(n(c.npt))+' % / '+f1(n(c.wow))+' %',[c.nptSource,c.wowSource].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join('; ')),
+    inRow('Complexity index',f1(n(c.ci))+' %',c.ciSource),
+    inRow('Phase cost uncertainty / contingency',f1(n(c.unc))+' % / '+f1(n(c.cont))+' %','Contingency is not part of the base'),
+    inRow('Scope',esc(CE_SCOPE.map(([k,l])=>l+': '+c.choice[k]).join('; ')),'')
+  ].join('');
+  let kpi=(lab,val,unit,main)=>`<div class="kpi${main?' main':''}"><div class="l">${lab}</div><div class="v">${val}<span> ${unit}</span></div></div>`;
+  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>${esc((S.caseName||'DrillWise')+' - time and cost estimate')}</title><style>
+@page{size:A4;margin:13mm 12mm}
+*{box-sizing:border-box}
+body{margin:0;font:10.5px/1.45 "Segoe UI Variable Text","Segoe UI",system-ui,Roboto,Arial,sans-serif;color:#102a3a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.hdr{background:#003b5c;color:#fff;border-radius:8px;padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.hdr h1{margin:0;font-size:21px;letter-spacing:-.01em}.hdr .sub{margin-top:3px;font-size:12px;color:#cfeaf2}
+.hdr .meta{text-align:right;font-size:10px;color:#cfeaf2;line-height:1.55}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 4px}
+.kpi{border:1px solid #cfe4ec;border-radius:8px;padding:8px 10px;background:#f7fcfe}.kpi .l{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#607987}.kpi .v{font-size:19px;font-weight:700;color:#003b5c;margin-top:2px}.kpi .v span{font-size:10px;font-weight:600;color:#607987}
+.kpi.main{background:#003b5c;border-color:#003b5c}.kpi.main .l,.kpi.main .v span{color:#bfe3ee}.kpi.main .v{color:#fff}
+h2{font-size:12px;margin:15px 0 6px;padding-bottom:3px;border-bottom:2px solid #003b5c;color:#003b5c;letter-spacing:.01em}
+table{width:100%;border-collapse:collapse;font-size:10px}
+th{background:#eef8fc;text-align:left;font-weight:600;color:#33566a;padding:5px 7px;border-bottom:1.5px solid #003b5c;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+td{padding:4px 7px;border-bottom:1px solid #e1edf2;vertical-align:top}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.muted,p.muted{color:#607987}
+tr{break-inside:avoid}thead{display:table-header-group}
+tr.net td{font-weight:700}tr.sub td:first-child{padding-left:20px;color:#35505f}
+tr.bud td{font-weight:700;background:#eef8fc;border-top:1.5px solid #003b5c}
+tr.cont td{color:#607987;font-style:italic}
+tr.net td.muted,tr.bud td.muted,tr.tot td.muted{font-weight:400}
+.inp{table-layout:fixed}.inp th:nth-child(1){width:27%}.inp th:nth-child(2){width:42%}.inp th:nth-child(3){width:31%}
+tr.tot td{font-weight:700;background:#eef8fc;border-top:1.5px solid #003b5c}
+ul{margin:4px 0 0;padding-left:18px}li{margin:2px 0}
+.sec{break-inside:avoid}
+.ce-legend{display:flex;gap:16px;font-size:10px;color:#607987;margin:2px 0 6px}.ce-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+.foot{margin-top:16px;padding-top:6px;border-top:1px solid #cfe4ec;font-size:9px;color:#607987}
+</style></head><body>
+<div class="hdr"><div><h1>Time &amp; Cost Estimate</h1><div class="sub">${esc(S.caseName||'Unnamed well')}</div></div><div class="meta">Estimate class ${esc(c.estClass)}<br>Estimate date ${esc(c.estDate)}<br>Planned spud ${esc(c.spudYear)}</div></div>
+<div class="kpis">${kpi('Budget time',f1(t.budgetDays),'days')}${kpi('Budget cost (base)',f0(t.budgetCost),'MNOK',true)}${kpi('Contingency '+f0(n(c.cont))+' % (info)',f0(t.contCost),'MNOK')}${kpi('Base + contingency',f0(t.budgetCost+t.contCost),'MNOK')}</div>
+<div class="sec"><h2>Time &amp; cost summary</h2><table><thead><tr><th>Item</th><th class="num">Time (days)</th><th class="num">Cost (MNOK)</th><th>Note</th></tr></thead><tbody>
+${sRow('Total net (activity build-up)',f2(t.netDays),f1(t.netCost),'Sum of the activities below','net')}
+${sRow('NPT ('+f1(n(c.npt))+' %)',f2(t.nptDays),f1(t.nptCost),'Percentage of net days','sub')}
+${sRow('WOW ('+f1(n(c.wow))+' %)',f2(t.wowDays),f1(t.wowCost),'Percentage of net days','sub')}
+${sRow('Complexity index ('+f1(n(c.ci))+' %)',f2(t.ciDays),f1(t.ciCost),'Costed at the drilling spread rate','sub')}
+${sRow('Cost phase uncertainty ('+f1(n(c.unc))+' %)','&ndash;',f1(t.uncCost),'On net + NPT + WOW + complexity cost','sub')}
+${sRow('Budget time / cost',f2(t.budgetDays),f1(t.budgetCost),'Base estimate','bud')}
+${sRow('Contingency ('+f1(n(c.cont))+' %, not included in base)','&ndash;',f1(t.contCost),'For information only','cont')}
+</tbody></table></div>
+<div class="sec"><h2>Assumptions</h2>${assumpHtml}</div>
+<div class="sec"><h2>Activity build-up</h2><table><thead><tr><th>Activity</th><th>Spread basis</th><th class="num">Net days</th><th class="num">Rate (MNOK/d)</th><th class="num">Net cost (MNOK)</th><th class="num">NPT days</th><th class="num">WOW days</th><th class="num">Complexity days</th></tr></thead><tbody>${actHtml}</tbody></table><p class="muted" style="margin:4px 0 0;font-size:9px">Activities with no net days are omitted.</p></div>
+<div class="sec"><h2>Cost by category</h2>${ceChartHtml(r,false)}</div>
+<div class="sec"><h2>Inputs used</h2><table class="inp"><thead><tr><th>Parameter</th><th>Value</th><th>Source / reference</th></tr></thead><tbody>${inputs}</tbody></table></div>
+<div class="foot">Early-phase estimate. Contingency is shown for information only and is not part of the base. Generated by DrillWise on ${esc(when)}.</div>
+</body></html>`;
+}
+
+function cePrintReport(){
+  let S=ceSnapshot(), html=ceReportHtml(S), title=(S.caseName||'DrillWise')+' - time and cost estimate';
+  let f=document.createElement('iframe');
+  f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;left:-9999px;top:0;width:210mm;height:297mm;border:0';
+  document.body.appendChild(f);
+  let d=f.contentWindow.document;d.open();d.write(html);d.close();
+  let oldTitle=document.title,closed=false;document.title=title;
+  let done=()=>{if(closed)return;closed=true;document.title=oldTitle;setTimeout(()=>f.remove(),500)};
+  f.contentWindow.onafterprint=done;setTimeout(done,180000);
+  setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();ceStatus('In the print dialog, choose "Save as PDF" as the destination.')}catch(e){ceStatus('Could not open the print dialog: '+(e&&e.message||e),true);done()}},300);
+}
+
 
 if(!state.timeDepth)state.timeDepth=[];render();</script><button id="cornerSmiley" title="Click for a drilling joke" onclick="newDrillingJoke()">🙂</button><div id="cornerJoke"></div><div id="plotTooltip" class="plot-tooltip"></div></body></html>
