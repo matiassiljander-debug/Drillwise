@@ -1,5 +1,13 @@
 # DrillWise Changelog
 
+## Riser margin fixes
+
+### Fixed
+
+- Riser margin plot x-axis labels were offset by 0.05 SG. Gridlines started at 0.75 and stepped by 0.2, so the line labelled "1.5" was really at 1.55 (and so on across the axis). Gridlines are now placed on whole multiples of 0.1 SG with labels every 0.2 SG, in the shared plot function, so the same error cannot appear on other plots.
+- Riser margin is now always checked at each RM section's top and TD (PP interpolated from the PPFG), as well as at every PPFG point in between. Previously only PPFG points inside the section were used, so the section TD - usually the tightest point - was skipped unless a PPFG point landed exactly on it.
+- Missing inputs no longer show as a false "LOW": rows now say NO WD / AIR GAP, NO PP, NO MW or ABOVE SEABED. A blank water depth was previously treated as 0 m and could pass as "OK".
+
 ## v2.1
 
 ### Changed
