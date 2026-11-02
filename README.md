@@ -85,6 +85,12 @@ v2.1
 - Section capacity calculations
 - Open-hole and annular capacity basis
 
+### Wellpath planner
+
+- Change well length: add or remove length at a section TD or any depth (for example drill the last section 200 m longer); the extra length holds or steers, and casing shoes, section depths and time vs depth rows follow
+- Build a wellpath: build-and-hold solved to a target, or any list of segments (length, end inclination / azimuth, dogleg)
+- Minimum curvature, one level of undo
+
 ### Time vs Depth
 
 - Activity-based time vs depth table
