@@ -1713,9 +1713,10 @@ function loadPlotlyTrajectory(cb){
 function renderWellpath(){
   let rows=trajectoryRows();
   let hasDLS=rows.some(r=>Number.isFinite(r.DLS)&&r.DLS>0);
-  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, middle-click drag to pan (e.g. move the lower part of the well to the centre of the box), mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view. "Reset view" also re-centres.</p><div class="actions"><button class="dark" onclick="calculateWellpathDLS()">Calculate DLS</button><span class="note">${hasDLS?'DLS calculated - shown in the 3D plot info, lookup, and the preview table below.':'No DLS in the uploaded survey - click to calculate it (deg/30m) from MD/Inc/Azimuth.'}</span></div><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div><div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="card"><h3>Targets</h3><p class="note">Plotted as boxes in the 3D view and as rectangles in the plan view. NS/EW/TVD is the box centre; Width is its EW extent, Length its NS extent, Height its TVD (vertical) extent.</p><div class="table-wrap" id="targetsTable"></div><div class="actions"><button class="dark" onclick="applyTargets()">Apply targets</button><button onclick="drillwiseAddTargetRow()">Add target</button></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
+  $('page-wellpath').innerHTML=`<div class="card"><h3>Wellpath</h3><p class="note">Native 3D trajectory view. Drag to rotate, middle-click drag to pan (e.g. move the lower part of the well to the centre of the box), mouse wheel to zoom, hover or click to see the station data and show the matching point in the plan view. "Reset view" also re-centres.</p><div class="actions"><button class="dark" onclick="calculateWellpathDLS()">Calculate DLS</button><span class="note">${hasDLS?'DLS calculated - shown in the 3D plot info, lookup, and the preview table below.':'No DLS in the uploaded survey - click to calculate it (deg/30m) from MD/Inc/Azimuth.'}</span></div><div class="grid3"><label>Lookup basis<select id="trajBasis"><option>MD</option><option>TVD</option></select></label><label>Depth<input id="trajDepth" type="number" step="0.1"></label><div style="align-self:end"><button class="dark" onclick="lookupTrajectory()">Lookup</button></div></div><div id="trajResult" class="table-wrap" style="margin-top:10px"></div></div>${wpPlannerHtml()}<div class="card"><h3>Offset wells</h3><p class="note">Upload up to 10 offset well trajectories to show alongside the primary well. Columns are auto-detected the same way as the main wellpath upload. Each well's own trajectory is measured from its own surface location, so set its N/S and E/W offset from the primary well's surface location to plot it at the correct real-world position instead of every well appearing to spud from the same point.</p><div class="actions"><button class="dark" id="addOffsetWellBtn" onclick="addOffsetWell()" ${state.offsetWells.length>=10?'disabled':''}>Add offset well</button></div><div id="offsetWellsList"></div></div><div class="card"><h3>Targets</h3><p class="note">Plotted as boxes in the 3D view and as rectangles in the plan view. NS/EW/TVD is the box centre; Width is its EW extent, Length its NS extent, Height its TVD (vertical) extent.</p><div class="table-wrap" id="targetsTable"></div><div class="actions"><button class="dark" onclick="applyTargets()">Apply targets</button><button onclick="drillwiseAddTargetRow()">Add target</button></div></div><div class="grid"><div class="card" id="traj3dCard"><h3>3D trajectory</h3><div class="actions" style="margin-bottom:8px;align-items:center"><button onclick="window._drillwiseTrajectoryReset&&window._drillwiseTrajectoryReset()">Reset view</button><button onclick="toggleTrajectoryFullscreen()">Fullscreen</button><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="showShoesToggle" ${state.showShoesOnTrajectory?'checked':''} onchange="toggleShoesOnTrajectory(this)"> Show casing shoes</label></div><canvas id="traj3dCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div><div class="card"><h3>Plan view</h3><p id="trajSyncNote" class="note">Selected point: no point selected</p><canvas id="trajPlanCanvas" style="width:100%;height:680px;background:white;border:1px solid #cfe4ec;border-radius:12px;display:block"></canvas></div></div><div class="card"><h3>Mapped wellpath preview</h3><div class="table-wrap">${table(rows.slice(0,80))}</div></div>`;
   renderOffsetWellsList();
   editTable('targetsTable',state.targets.length?state.targets:[blankTarget()],['Name','NS','EW','TVD','Width','Length','Height']);
+  wpPlannerWire();
   drawWellpathViews(rows);
 }
 function drillwiseAddTargetRow(){state.targets.push(blankTarget());renderWellpath();}
@@ -3183,4 +3184,201 @@ function renderSummary(){
   wsRefresh();
 }
 
+/* ===================================================================================
+   Wellpath planner (03 Wellpath tab)
+   1. Change well length: add (or remove) length at a section TD or any MD - e.g. drill the last section
+      200 m longer than planned. The extra length continues the path (hold, or steer to a new
+      inclination / azimuth at the end of the well); everything deeper moves with it, and the casing
+      shoes, section depths and time vs depth rows are updated to match.
+   2. Build a wellpath: a build-and-hold profile solved to a target, or any list of segments. Each
+      segment continues for a length while turning towards an end inclination / azimuth at a constant
+      dogleg severity (a hold when the DLS is 0 or the direction is already reached).
+   Paths are minimum curvature, with a station at least every 30 m. One level of undo.
+   =================================================================================== */
+const WP_STEP=30;
+function wpDir(inc,azi){let i=inc*Math.PI/180,a=azi*Math.PI/180;return [Math.sin(i)*Math.cos(a),Math.sin(i)*Math.sin(a),Math.cos(i)]}
+function wpIncAzi(v,prevAzi){let l=Math.hypot(v[0],v[1],v[2])||1,x=v[0]/l,y=v[1]/l,z=v[2]/l,inc=Math.acos(Math.max(-1,Math.min(1,z)))*180/Math.PI;
+  if(Math.hypot(x,y)<1e-9)return {inc,azi:prevAzi};let azi=Math.atan2(y,x)*180/Math.PI;if(azi<0)azi+=360;return {inc,azi}}
+/* Appends stations to rows (which end at the current position) for len metres, turning from the current
+   direction towards (toInc,toAzi) at dls deg/30 m along the shortest arc, then holding. */
+function wpAdvance(rows,len,toInc,toAzi,dls){
+  let last=rows[rows.length-1],v1=wpDir(last.Inc,last.Azimuth),v2=wpDir(toInc,toAzi);
+  let dot=Math.max(-1,Math.min(1,v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2])),beta=Math.acos(dot),rate=dls/30*Math.PI/180;
+  let turnLen=(rate>0&&beta>1e-9)?beta/rate:0,sinB=Math.sin(beta);
+  let cuts=[len];for(let s=WP_STEP;s<len-1e-6;s+=WP_STEP)cuts.push(s);if(turnLen>1e-6&&turnLen<len-1e-6)cuts.push(turnLen);
+  cuts=cuts.sort((a,b)=>a-b).filter((s,i,a)=>i===0||s-a[i-1]>1e-6);
+  cuts.forEach(s=>{
+    let f=turnLen>0?Math.min(1,s/turnLen):0,v;
+    if(f<=0||beta<1e-9)v=v1;else if(sinB<1e-6)v=v2;else v=[0,1,2].map(k=>(Math.sin((1-f)*beta)*v1[k]+Math.sin(f*beta)*v2[k])/sinB);
+    let d=wpIncAzi(v,last.Azimuth),p=rows[rows.length-1],md=last.MD+s;
+    let q=minCurveStep(p.MD,p.Inc,p.Azimuth,p.NS,p.EW,p.TVD,md,d.inc,d.azi);
+    rows.push({MD:md,TVD:q.TVD,Inc:d.inc,Azimuth:d.azi,NS:q.NS,EW:q.EW,DLS:0});
+  });
+  return rows;
+}
+/* the station at an MD, interpolated along the existing path (minimum curvature from the station above) */
+function wpStationAt(rows,md){
+  let i=rows.findIndex(r=>r.MD>=md-1e-6);if(i<0)i=rows.length-1;
+  if(Math.abs(rows[i].MD-md)<=1e-6||i===0)return {...rows[i]};
+  let a=rows[i-1],b=rows[i],t=(md-a.MD)/(b.MD-a.MD),d=wpIncAzi([0,1,2].map(k=>wpDir(a.Inc,a.Azimuth)[k]*(1-t)+wpDir(b.Inc,b.Azimuth)[k]*t),a.Azimuth),q=minCurveStep(a.MD,a.Inc,a.Azimuth,a.NS,a.EW,a.TVD,md,d.inc,d.azi);
+  return {MD:md,TVD:q.TVD,Inc:d.inc,Azimuth:d.azi,NS:q.NS,EW:q.EW,DLS:0};
+}
+function wpBackup(){state.wpBackup=JSON.parse(JSON.stringify({wp:state.wp,wpRaw:state.wpRaw,strings:state.strings,sections:state.sections,timeDepth:state.timeDepth||[]}))}
+function wpUndo(){
+  let b=state.wpBackup;if(!b){wpMsg('Nothing to undo.');return}
+  state.wp=b.wp;state.wpRaw=b.wpRaw;state.strings=b.strings;state.sections=b.sections;state.timeDepth=b.timeDepth;state.wpBackup=null;
+  renderWellpath();wpMsg('Undone: the wellpath, casing depths, sections and time vs depth rows are back as they were.');
+}
+function wpMsg(t,bad){let e=$('wpMsg');if(e){e.textContent=t;e.className='note'+(bad?' bad':'')}}
+/* recompute every TVD from the (new) path for the MDs the app holds */
+function wpRecalcDepths(fromMD){
+  /* only depths at or below fromMD are recomputed, so entries above a change are left exactly as they were */
+  let lo=Number.isFinite(fromMD)?fromMD-0.5:-Infinity,ok=md=>Number.isFinite(n(md))&&String(md).trim()!==''&&n(md)>=lo,tv=md=>mdToTvd(n(md));
+  (state.strings||[]).forEach(s=>{if(ok(s.ShoeMD))s.ShoeTVD=tv(s.ShoeMD);if(ok(s.TopMD))s.TopTVD=tv(s.TopMD)});
+  (state.sections||[]).forEach(s=>{if(ok(s.FromMD))s.FromTVD=tv(s.FromMD);if(ok(s.ToMD))s.ToTVD=tv(s.ToMD)});
+  (state.timeDepth||[]).forEach(r=>{if(ok(r.FromMD))r.FromTVD=tv(r.FromMD);if(ok(r.ToMD))r.ToTVD=tv(r.ToMD)});
+}
+function wpTdOf(){let secs=(state.sections||[]).filter(s=>n(s.ToMD)>0);let d=secs.sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0];return d?{md:n(d.ToMD),tvd:n(d.ToTVD)}:null}
+function wpHoleLabel(s){let h=n(s.Hole);return Number.isFinite(h)&&h>0?fmt(h,3).replace(/\.?0+$/,'')+'"':(s.Section||'section')}
+
+/* ------------------------------ 1. change the well length ------------------------------ */
+function wpApplyLength(){
+  let base=trajectoryRows();
+  if(base.length<2){wpMsg('Load or build a wellpath first.',true);return}
+  let L=n($('wpBy').value),sel=$('wpAt').value,X=sel==='custom'?n($('wpAtMd').value):n(sel),mode=$('wpMode').value;
+  if(!Number.isFinite(L)||Math.abs(L)<0.01){wpMsg('Enter the length to add (or a negative number to remove), in metres.',true);return}
+  if(!Number.isFinite(X)){wpMsg('Enter the measured depth where the change applies.',true);return}
+  let last=base[base.length-1];
+  if(X<base[0].MD+0.5||X>last.MD+0.5){wpMsg('That depth is outside the wellpath (0 to '+fmt(last.MD,0)+' mMD).',true);return}
+  X=Math.min(X,last.MD);let atEnd=X>=last.MD-0.5;
+  if(L<0&&-L>X-base[0].MD-1){wpMsg('Cannot remove more length than the well has above that depth.',true);return}
+  if(L<0){let cut=X+L,inside=(state.strings||[]).filter(s=>n(s.ShoeMD)>cut+0.5&&n(s.ShoeMD)<X-0.5);
+    if(inside.length){wpMsg('A casing shoe ('+inside.map(s=>(s.String||'')+' at '+fmt(n(s.ShoeMD),0)+' mMD').join(', ')+') lies inside the interval you would remove. Move that shoe first.',true);return}}
+  if(mode==='steer'&&!atEnd){wpMsg('Steering is only possible at the end of the well. Choose "Hold" or pick the TD.',true);return}
+  let tdBefore=wpTdOf();
+  let head=base.filter(r=>r.MD<X-0.01).map(r=>({...r})),sX=wpStationAt(base,X),tail=base.filter(r=>r.MD>X+0.01).map(r=>({...r}));
+  let rows,kink=0,added=0;
+  if(L>0){
+    head.push(sX);
+    let before=head.length;
+    wpAdvance(head,L,mode==='steer'?n($('wpSInc').value):sX.Inc,mode==='steer'?n($('wpSAzi').value):sX.Azimuth,mode==='steer'?n($('wpSDls').value):0);
+    added=head.length-before;
+    let e=head[head.length-1],dT=e.TVD-sX.TVD,dN=e.NS-sX.NS,dE=e.EW-sX.EW;
+    tail.forEach(r=>{r.MD+=L;r.TVD+=dT;r.NS+=dN;r.EW+=dE});
+    rows=head.concat(tail);
+  }else{
+    let cut=wpStationAt(base,X+L);head=base.filter(r=>r.MD<cut.MD-0.01).map(r=>({...r}));head.push(cut);
+    let dT=cut.TVD-sX.TVD,dN=cut.NS-sX.NS,dE=cut.EW-sX.EW;
+    tail.forEach(r=>{r.MD+=L;r.TVD+=dT;r.NS+=dN;r.EW+=dE});
+    if(tail.length){let a=wpDir(cut.Inc,cut.Azimuth),b=wpDir(sX.Inc,sX.Azimuth),dl=Math.acos(Math.max(-1,Math.min(1,a[0]*b[0]+a[1]*b[1]+a[2]*b[2])))*180/Math.PI;kink=dl}
+    rows=head.concat(tail);
+  }
+  wpBackup();
+  state.wp=calcDLS(rows.map((r,i)=>({MD:r.MD,TVD:r.TVD,Inc:r.Inc,Azimuth:r.Azimuth,NS:r.NS,EW:r.EW,DLS:0})));
+  /* everything at or below X moves by L (a shoe sitting at X is the TD of the section being changed) */
+  let mv=v=>Number.isFinite(n(v))&&String(v).trim()!==''&&n(v)>=X-0.5?n(v)+L:v;
+  (state.strings||[]).forEach(s=>{s.ShoeMD=mv(s.ShoeMD);if(n(s.TopMD)>X+0.5)s.TopMD=n(s.TopMD)+L;if(n(s.TopCementMD)>X+0.5)s.TopCementMD=n(s.TopCementMD)+L});
+  (state.sections||[]).forEach(s=>{s.FromMD=mv(s.FromMD);s.ToMD=mv(s.ToMD)});
+  (state.timeDepth||[]).forEach(r=>{r.FromMD=mv(r.FromMD);r.ToMD=mv(r.ToMD)});
+  wpRecalcDepths(L>0?X:X+L);
+  let tdAfter=wpTdOf(),sec=(state.sections||[]).find(s=>Math.abs(n(s.ToMD)-(X+L))<0.6);
+  let maxDls=Math.max(0,...state.wp.filter(r=>r.MD>=Math.min(X,X+L)-1&&r.MD<=Math.max(X,X+L)+WP_STEP).map(r=>r.DLS||0));
+  let msg=(L>0?'Added ':'Removed ')+fmt(Math.abs(L),1)+' m at '+fmt(X,0)+' mMD'+(sec?' ('+wpHoleLabel(sec)+' section)':'')+'. '
+    +(tdBefore&&tdAfter?'TD '+fmt(tdBefore.md,0)+' to '+fmt(tdAfter.md,0)+' mMD, '+fmt(tdBefore.tvd,0)+' to '+fmt(tdAfter.tvd,0)+' mTVD. ':'')
+    +(L>0?added+' new survey stations'+(mode==='steer'?', max DLS '+fmt(maxDls,1)+' deg/30m':', holding the same inclination and azimuth')+'. ':'')
+    +(kink>0.5?'Warning: removing length mid-well leaves a '+fmt(kink,1)+' deg bend where the path rejoins; check the DLS. ':'')
+    +'Casing and section depths were updated. Time vs depth rows were moved too, but their durations are unchanged: update the days. Undo is available.';
+  renderWellpath();wpMsg(msg,kink>0.5);
+}
+
+/* ------------------------------ 2. build a wellpath ------------------------------ */
+function wpPlan(){let g=state.general;if(!g.wpPlan)g.wpPlan={kop:500,dls:2,tgt:'',ns:0,ew:0,tvd:0,extra:0,segs:[]};return g.wpPlan}
+function wpReadSegs(){
+  let out=[];
+  [...$('wpSegTable').querySelectorAll('tbody tr')].forEach(tr=>{
+    let g=c=>{let el=tr.querySelector('input[data-col="'+c+'"]');return el?el.value.trim():''},num=c=>{let v=g(c);return v===''?'':n(v)};
+    let o={Name:g('Name'),Length:num('Length'),Inc:num('Inc'),Azi:num('Azi'),DLS:num('DLS')};
+    if(o.Name||o.Length!=='')out.push(o);
+  });
+  return out;
+}
+function wpPlanRead(){
+  let p=wpPlan();
+  p.kop=n($('wpKop').value);p.dls=n($('wpJDls').value);p.tgt=$('wpTgt').value;p.extra=n($('wpExtra').value)||0;
+  p.ns=n($('wpTgtNs').value);p.ew=n($('wpTgtEw').value);p.tvd=n($('wpTgtTvd').value);
+  if($('wpSegTable'))p.segs=wpReadSegs();
+  return p;
+}
+function wpTargetCentre(p){
+  if(p.tgt!==''&&p.tgt!=='manual'){let t=validTargets()[n(p.tgt)];if(t)return {ns:n(t.NS),ew:n(t.EW),tvd:n(t.TVD)}}
+  return {ns:p.ns,ew:p.ew,tvd:p.tvd};
+}
+/* build-and-hold solved to a target: vertical to the KOP, build at the DLS to the tangent inclination, hold to the target */
+function wpSolveJ(kop,dls,T,extra){
+  let D=Math.hypot(T.ns,T.ew),V=T.tvd-kop;
+  if(!(kop>=0)||!(dls>0))return {err:'Enter a KOP depth and a build rate above 0.'};
+  if(!(V>0))return {err:'The target must be deeper than the KOP.'};
+  let az=(Math.atan2(T.ew,T.ns)*180/Math.PI+360)%360;
+  if(D<0.5)return {segs:[{Name:'Vertical to target',Length:+(T.tvd).toFixed(2),Inc:0,Azi:az,DLS:0}].concat(extra>0?[{Name:'Hold beyond target',Length:extra,Inc:0,Azi:az,DLS:0}]:[]),inc:0,azi:az};
+  let R=30*180/(Math.PI*dls),A=D-R,rho=Math.hypot(A,V);
+  if(rho<R)return {err:'The target is too close for a '+fmt(dls,1)+' deg/30m build from that KOP. Use a deeper KOP, a higher build rate, or a target further away or deeper.'};
+  let th=Math.acos(-R/rho)-Math.atan2(V,A);
+  if(!(th>0&&th<Math.PI*0.99))return {err:'No build-and-hold path reaches that target with these settings.'};
+  let buildLen=R*th,hold=Math.hypot(D-R*(1-Math.cos(th)),V-R*Math.sin(th)),incDeg=th*180/Math.PI;
+  let segs=[{Name:'Vertical to KOP',Length:+kop.toFixed(2),Inc:0,Azi:+az.toFixed(3),DLS:0},{Name:'Build',Length:+buildLen.toFixed(2),Inc:+incDeg.toFixed(3),Azi:+az.toFixed(3),DLS:dls},{Name:'Hold to target',Length:+hold.toFixed(2),Inc:+incDeg.toFixed(3),Azi:+az.toFixed(3),DLS:0}];
+  if(extra>0)segs.push({Name:'Hold beyond target',Length:extra,Inc:+incDeg.toFixed(3),Azi:+az.toFixed(3),DLS:0});
+  return {segs,inc:incDeg,azi:az};
+}
+function wpGenerate(){
+  let p=wpPlanRead(),T=wpTargetCentre(p);
+  if(![T.ns,T.ew,T.tvd].every(Number.isFinite)){wpMsg('Pick a target, or enter its NS, EW and TVD.',true);return}
+  let r=wpSolveJ(p.kop,p.dls,T,p.extra);
+  if(r.err){wpMsg(r.err,true);return}
+  p.segs=r.segs;renderWellpath();
+  wpMsg('Build-and-hold solved: tangent '+fmt(r.inc,1)+' deg inclination on azimuth '+fmt(r.azi,1)+'. Edit the segments if you like, then press "Apply as wellpath".');
+}
+function wpBuildRows(segs){
+  let first=segs.find(s=>Number.isFinite(s.Length)&&s.Length>0);if(!first)return null;
+  let rows=[{MD:0,TVD:0,Inc:0,Azimuth:(Number.isFinite(first.Azi)&&first.Azi!=='')?first.Azi:0,NS:0,EW:0,DLS:0}];
+  segs.forEach(s=>{if(!(Number.isFinite(s.Length)&&s.Length>0))return;
+    let last=rows[rows.length-1];
+    wpAdvance(rows,s.Length,(Number.isFinite(s.Inc)&&s.Inc!=='')?s.Inc:last.Inc,(Number.isFinite(s.Azi)&&s.Azi!=='')?s.Azi:last.Azimuth,(Number.isFinite(s.DLS)&&s.DLS!=='')?s.DLS:0)});
+  return calcDLS(rows);
+}
+function wpAddSeg(){let p=wpPlanRead();p.segs.push({Name:'',Length:100,Inc:'',Azi:'',DLS:0});renderWellpath()}
+function wpApplyBuild(){
+  let p=wpPlanRead(),rows=wpBuildRows(p.segs);
+  if(!rows||rows.length<2){wpMsg('Add at least one segment with a length.',true);return}
+  if((state.wp||[]).length>1&&!confirm('This replaces the current wellpath with the planned one. Casing and section MDs stay as they are and their TVDs are recalculated. You can undo it afterwards. Continue?'))return;
+  let td=wpTdOf();
+  wpBackup();state.wp=rows;state.wpRaw=[];wpRecalcDepths();
+  let e=rows[rows.length-1];
+  renderWellpath();
+  wpMsg('Wellpath applied: '+rows.length+' stations to '+fmt(e.MD,0)+' mMD / '+fmt(e.TVD,0)+' mTVD, final inclination '+fmt(e.Inc,1)+' deg, '+fmt(Math.hypot(e.NS,e.EW),0)+' m departure.'
+    +(td&&td.md>e.MD+0.5?' The deepest section TD ('+fmt(td.md,0)+' mMD) is deeper than this path: use "Change well length" to extend it, or lower the TD. ':' ')+'Undo is available.',!!(td&&td.md>e.MD+0.5));
+}
+
+function wpPlannerHtml(){
+  let p=wpPlan(),secs=(state.sections||[]).filter(s=>n(s.ToMD)>0),tg=validTargets(),has=(state.wp||[]).length>1;
+  let lastTD=secs.length?secs.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0]:null;
+  let opts=secs.map(s=>'<option value="'+n(s.ToMD)+'"'+(s===lastTD?' selected':'')+'>'+esc(wpHoleLabel(s))+' section TD &middot; '+fmt(n(s.ToMD),0)+' mMD</option>').join('')+'<option value="custom"'+(lastTD?'':' selected')+'>Another depth (enter below)</option>';
+  let segs=(p.segs&&p.segs.length)?p.segs:[];
+  return '<div class="card"><h3>Wellpath planner</h3><p class="note">Change the well and everything that depends on it follows: casing shoe TVDs, section depths and the time vs depth rows. Every change can be undone once.</p>'
+  +'<h3 style="font-size:14px;margin-top:12px">Change well length</h3><p class="note">For example: drill the last section 200 m longer than planned. The extra length continues the path; anything deeper moves down with it.</p>'
+  +'<div class="grid3"><label>At<select id="wpAt" onchange="document.getElementById(\'wpAtMdWrap\').style.display=this.value===\'custom\'?\'\':\'none\'">'+opts+'</select></label>'
+  +'<label>Add length (m, negative removes)<input id="wpBy" type="number" step="10" value="'+(n(state.general.wpBy)||200)+'" onchange="state.general.wpBy=n(this.value)"></label>'
+  +'<label>Extra length goes<select id="wpMode" onchange="document.getElementById(\'wpSteer\').style.display=this.value===\'steer\'?\'\':\'none\'"><option value="hold">Straight on (hold inclination and azimuth)</option><option value="steer">Steer to a new direction (end of well only)</option></select></label></div>'
+  +'<div class="grid3" id="wpAtMdWrap" style="'+(lastTD?'display:none':'')+'"><label>Measured depth (m)<input id="wpAtMd" type="number" step="10"></label></div>'
+  +'<div class="grid3" id="wpSteer" style="display:none"><label>Inclination to reach (deg)<input id="wpSInc" type="number" step="1" value="90"></label><label>Azimuth to reach (deg)<input id="wpSAzi" type="number" step="1" value="'+(has?fmt(trajectoryRows().at(-1).Azimuth,0):0)+'"></label><label>Dogleg (deg/30 m)<input id="wpSDls" type="number" step="0.5" value="3"></label></div>'
+  +'<div class="actions"><button class="dark" onclick="wpApplyLength()"'+(has?'':' disabled title="Load or build a wellpath first"')+'>Apply change</button><button onclick="wpUndo()"'+(state.wpBackup?'':' disabled')+'>Undo last change</button></div>'
+  +'<h3 style="font-size:14px;margin-top:16px">Build a wellpath</h3><p class="note">Solves a vertical, build and hold profile to a target (from the Targets table below, or typed in), then lists the segments. Each segment runs for a length while turning to an end inclination and azimuth at a constant dogleg; edit them freely. Measured depth starts at 0 at the rotary table.</p>'
+  +'<div class="grid3"><label>Kick-off depth (mMD)<input id="wpKop" type="number" step="50" value="'+p.kop+'"></label><label>Build rate (deg/30 m)<input id="wpJDls" type="number" step="0.5" value="'+p.dls+'"></label>'
+  +'<label>Target<select id="wpTgt" onchange="document.getElementById(\'wpTgtMan\').style.display=this.value===\'manual\'||this.value===\'\'?\'\':\'none\'"><option value=""'+(p.tgt===''?' selected':'')+'>Enter manually</option>'+tg.map((t,i)=>'<option value="'+i+'"'+(String(p.tgt)===String(i)?' selected':'')+'>'+esc(t.Name||('Target '+(i+1)))+' ('+fmt(n(t.TVD),0)+' mTVD)</option>').join('')+'</select></label></div>'
+  +'<div class="grid3" id="wpTgtMan" style="'+(p.tgt===''||p.tgt==='manual'?'':'display:none')+'"><label>Target north (m)<input id="wpTgtNs" type="number" step="10" value="'+(Number.isFinite(p.ns)?p.ns:0)+'"></label><label>Target east (m)<input id="wpTgtEw" type="number" step="10" value="'+(Number.isFinite(p.ew)?p.ew:0)+'"></label><label>Target TVD (m)<input id="wpTgtTvd" type="number" step="10" value="'+(Number.isFinite(p.tvd)?p.tvd:0)+'"></label></div>'
+  +'<div class="grid3"><label>Extra hold beyond target (m)<input id="wpExtra" type="number" step="50" value="'+(p.extra||0)+'"></label></div>'
+  +'<div class="actions"><button class="dark" onclick="wpGenerate()">Solve profile to target</button><button onclick="wpAddSeg()">Add segment</button><button class="dark" onclick="wpApplyBuild()">Apply as wellpath</button></div>'
+  +'<div class="table-wrap" id="wpSegTable"></div>'
+  +'<p class="note" id="wpMsg"></p></div>';
+}
+function wpPlannerWire(){let p=wpPlan();if($('wpSegTable'))editTable('wpSegTable',p.segs&&p.segs.length?p.segs:[],['Name','Length','Inc','Azi','DLS'])}
 if(!state.timeDepth)state.timeDepth=[];render();</script><button id="cornerSmiley" title="Click for a drilling joke" onclick="newDrillingJoke()">🙂</button><div id="cornerJoke"></div><div id="plotTooltip" class="plot-tooltip"></div></body></html>
