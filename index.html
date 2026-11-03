@@ -263,7 +263,7 @@ function showMap(kind,rows){let cfg=UPLOAD_KINDS[kind],div=$(cfg.mapId),cols=Obj
 function previewRaw(kind){let cfg=UPLOAD_KINDS[kind];$(cfg.previewId).innerHTML=table(state[cfg.rawKey].slice(0,20))}
 function applyMap(kind){let cfg=UPLOAD_KINDS[kind],raw=state[cfg.rawKey],v=f=>$(`map_${kind}_${f}`).value;
   if(kind==='pp'){state.ppfg=raw.map(r=>({TVD:n(r[v('TVD')]),PP:ppfgValue(r[v('PP')]),FG:ppfgValue(r[v('FG')]),Shmin:ppfgValue(r[v('Shmin')]),Collapse:ppfgValue(r[v('Collapse')])})).filter(r=>Number.isFinite(r.TVD)).sort((a,b)=>a.TVD-b.TVD);$('ppfgPreview').innerHTML='<p class="note">Mapped PPFG. Missing values such as -999 are treated as blank and are not plotted.</p>'+table(state.ppfg.slice(0,25))}
-  else if(kind==='wp'){state.wp=raw.map(r=>({MD:n(r[v('MD')]),TVD:n(r[v('TVD')]),Inc:n(r[v('Inc')]),Azimuth:n(r[v('Azimuth')]),NS:n(r[v('NS')]),EW:n(r[v('EW')])})).filter(r=>Number.isFinite(r.MD)&&Number.isFinite(r.TVD));$('wpPreview').innerHTML=table(state.wp.slice(0,25));wireShoeTvdAutoCalc()}
+  else if(kind==='wp'){state.wpOriginal=null;state.wpHistory=[];state.wpRedo=[];state.wp=raw.map(r=>({MD:n(r[v('MD')]),TVD:n(r[v('TVD')]),Inc:n(r[v('Inc')]),Azimuth:n(r[v('Azimuth')]),NS:n(r[v('NS')]),EW:n(r[v('EW')])})).filter(r=>Number.isFinite(r.MD)&&Number.isFinite(r.TVD));$('wpPreview').innerHTML=table(state.wp.slice(0,25));wireShoeTvdAutoCalc()}
   else if(kind==='bha'){state.bha=raw.map(r=>({Component:String(r[v('Component')]??'').trim(),OD:n(r[v('OD')]),ID:n(r[v('ID')]),Length:n(r[v('Length')])})).filter(r=>Number.isFinite(r.OD)&&Number.isFinite(r.Length));$('bhaPreview').innerHTML=table(state.bha.slice(0,25));if($('bhaTable'))editTable('bhaTable',state.bha,['Component','OD','ID','Length'])}
 }
 function interp(rows,xcol,ycol,x){let a=rows.filter(r=>Number.isFinite(r[xcol])&&Number.isFinite(r[ycol])).sort((u,v)=>u[xcol]-v[xcol]);if(!a.length)return NaN;if(x<=a[0][xcol])return a[0][ycol];if(x>=a.at(-1)[xcol])return a.at(-1)[ycol];for(let i=1;i<a.length;i++){if(x<=a[i][xcol]){let p=a[i-1],q=a[i],t=(x-p[xcol])/(q[xcol]-p[xcol]);return p[ycol]+t*(q[ycol]-p[ycol])}}return NaN}function shoeShapes(x0,x1,xAnn,col){let shapes=[],ann=[];state.strings.forEach(s=>{let y=n(s.ShoeTVD);if(Number.isFinite(y)&&y>0){shapes.push({x0,x1,y0:y,y1:y,line:{color:col}});ann.push({x:xAnn,y,text:(s.String||'')+(s.Label?' - '+s.Label:''),font:{color:col}})}});return{shapes,ann}}function svgPlot(target,title,traces,shapes,ann,xmin,xmax,ymax,xTitle){
@@ -2375,13 +2375,13 @@ function renderExport(){
   function blankSection(){return {Section:'',Hole:'',FromTVD:'',ToTVD:'',FromMD:'',ToMD:'',MW:'',RM:false};}
   function blankBhaRow(){return {Component:'',OD:'',ID:'',Length:''};}
   function safeRead(){try{if($('caseName'))state.general.caseName=$('caseName').value;if($('waterDepth'))state.general.waterDepth=n($('waterDepth').value);if($('airGap'))state.general.airGap=n($('airGap').value);if($('swDensity'))state.general.swDensity=n($('swDensity').value);if($('requiredOB'))state.general.requiredOB=n($('requiredOB').value);if($('stringsTable'))state.strings=readEdit('stringsTable');if($('sectionsTable'))state.sections=readEdit('sectionsTable');}catch(e){console.warn('v1.6.2 input read skipped',e)}}
-  function snapshot(){safeRead();return {general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),bhaRaw:clone(state.bhaRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),bha:clone(state.bha),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),ecdSettings:clone(state.ecdSettings),tdSettings:clone(state.tdSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos),schematicProfileLinePos:clone(state.schematicProfileLinePos),targets:clone(state.targets),openHoleShapeType:state.openHoleShapeType||null,timeDepth:clone(state.timeDepth||[]),costEstimate:state.costEstimate?clone(state.costEstimate):null}}
-  function restore(obj){state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.bhaRaw=obj.bhaRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.bha=obj.bha||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.ecdSettings=obj.ecdSettings||{};state.tdSettings=obj.tdSettings||{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};state.schematicProfileLinePos=obj.schematicProfileLinePos||{};state.targets=obj.targets||[];state.openHoleShapeType=obj.openHoleShapeType||null;state.timeDepth=Array.isArray(obj.timeDepth)?obj.timeDepth:[];state.costEstimate=obj.costEstimate||null;render();}
+  function snapshot(){safeRead();return {wpOriginal:state.wpOriginal?clone(state.wpOriginal):null,wpVersions:clone(state.wpVersions||[]),general:clone(state.general),ppfgRaw:clone(state.ppfgRaw),wpRaw:clone(state.wpRaw),bhaRaw:clone(state.bhaRaw),ppfg:clone(state.ppfg),wp:clone(state.wp),bha:clone(state.bha),strings:clone(state.strings),sections:clone(state.sections),kickSettings:clone(state.kickSettings),ecdSettings:clone(state.ecdSettings),tdSettings:clone(state.tdSettings),rmColors:clone(state.rmColors),schematicLabelPos:clone(state.schematicLabelPos),schematicNotes:clone(state.schematicNotes),showShoesOnTrajectory:state.showShoesOnTrajectory,offsetWells:clone(state.offsetWells),schematicProfileLabelPos:clone(state.schematicProfileLabelPos),schematicProfileLinePos:clone(state.schematicProfileLinePos),targets:clone(state.targets),openHoleShapeType:state.openHoleShapeType||null,timeDepth:clone(state.timeDepth||[]),costEstimate:state.costEstimate?clone(state.costEstimate):null}}
+  function restore(obj){state.wpOriginal=obj.wpOriginal&&obj.wpOriginal.wp?obj.wpOriginal:null;state.wpVersions=Array.isArray(obj.wpVersions)?obj.wpVersions:[];state.wpHistory=[];state.wpRedo=[];state.general=obj.general||{caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.ppfgRaw=obj.ppfgRaw||[];state.wpRaw=obj.wpRaw||[];state.bhaRaw=obj.bhaRaw||[];state.ppfg=obj.ppfg||[];state.wp=obj.wp||[];state.bha=obj.bha||[];state.strings=(obj.strings&&obj.strings.length)?obj.strings:[blankString()];state.sections=(obj.sections&&obj.sections.length)?obj.sections:[blankSection()];state.kickSettings=obj.kickSettings||{};state.ecdSettings=obj.ecdSettings||{};state.tdSettings=obj.tdSettings||{dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.rmColors=obj.rmColors||state.rmColors||{};state.schematicLabelPos=obj.schematicLabelPos||{};state.schematicNotes=obj.schematicNotes||[];state.showShoesOnTrajectory=!!obj.showShoesOnTrajectory;state.offsetWells=obj.offsetWells||[];state.schematicProfileLabelPos=obj.schematicProfileLabelPos||{};state.schematicProfileLinePos=obj.schematicProfileLinePos||{};state.targets=obj.targets||[];state.openHoleShapeType=obj.openHoleShapeType||null;state.timeDepth=Array.isArray(obj.timeDepth)?obj.timeDepth:[];state.costEstimate=obj.costEstimate||null;render();}
   window.drillwiseSaveWell=function(){localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));drillwiseSetSaveStatus('Saved current well in this browser.');};
   window.drillwiseLoadWell=function(){let txt=localStorage.getItem(SAVE_KEY);if(!txt){drillwiseSetSaveStatus('No saved well found in this browser.');return;}try{restore(JSON.parse(txt));drillwiseSetSaveStatus('Loaded saved well from this browser.')}catch(e){drillwiseSetSaveStatus('Could not load saved well: '+e.message)}};
   window.drillwiseDownloadWell=function(){let data=JSON.stringify(snapshot(),null,2);let name=(state.general&&state.general.caseName?String(state.general.caseName):'DrillWise_well').replace(/[^a-z0-9_-]+/gi,'_');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);drillwiseSetSaveStatus('Downloaded well JSON.');};
   window.drillwiseImportWell=function(inp){let f=inp&&inp.files&&inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{restore(JSON.parse(String(r.result||'')));drillwiseSetSaveStatus('Imported well JSON: '+f.name)}catch(e){drillwiseSetSaveStatus('Import failed: '+e.message)}};r.readAsText(f);};
-  window.drillwiseClearAll=function(){state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.costEstimate=null;state.timeDepth=[];state.ppfgRaw=[];state.wpRaw=[];state.bhaRaw=[];state.ppfg=[];state.wp=[];state.bha=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.ecdSettings={};state.tdSettings={dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};state.schematicProfileLinePos={};state.targets=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
+  window.drillwiseClearAll=function(){state.wpOriginal=null;state.wpVersions=[];state.wpHistory=[];state.wpRedo=[];state.general={caseName:'',waterDepth:'',airGap:'',swDensity:'',requiredOB:''};state.costEstimate=null;state.timeDepth=[];state.ppfgRaw=[];state.wpRaw=[];state.bhaRaw=[];state.ppfg=[];state.wp=[];state.bha=[];state.strings=[blankString()];state.sections=[blankSection()];state.kickSettings={};state.ecdSettings={};state.tdSettings={dpOD:5.875,dpID:4.778,ffCased:0.20,ffOpen:0.30,blockWeight:20};state.schematicLabelPos={};state.schematicNotes=[];state.offsetWells=[];state.schematicProfileLabelPos={};state.schematicProfileLinePos={};state.targets=[];render();drillwiseSetSaveStatus('Cleared all well data. Start from the blank rows, or import/upload data.');};
   window.drillwiseAddCasingRow=function(){safeRead();state.strings.push(blankString());renderInput();};
   window.drillwiseAddSectionRow=function(){safeRead();state.sections.push(blankSection());renderInput();};
   window.drillwiseAddBhaRow=function(){state.bha.push(blankBhaRow());renderECD();};
@@ -3225,14 +3225,14 @@ function renderSummary(){
 
 /* ===================================================================================
    Wellpath planner (03 Wellpath tab)
-   1. Change well length: add (or remove) length at a section TD or any MD - e.g. drill the last section
-      200 m longer than planned. The extra length continues the path (hold, or steer to a new
-      inclination / azimuth at the end of the well); everything deeper moves with it, and the casing
-      shoes, section depths and time vs depth rows are updated to match.
-   2. Build a wellpath: a build-and-hold profile solved to a target, or any list of segments. Each
-      segment continues for a length while turning towards an end inclination / azimuth at a constant
-      dogleg severity (a hold when the DLS is 0 or the direction is already reached).
-   Paths are minimum curvature, with a station at least every 30 m. One level of undo.
+   - Change well length: add or remove length at a section TD or any measured depth, for example drill the
+     last section 200 m longer. The extra length holds (or, at the end of the well, steers); everything
+     deeper moves with it, and casing shoes, sections and time vs depth rows are updated to match.
+   - Build a wellpath: a build-and-hold profile solved to a target, or any list of segments. Each segment
+     runs for a length while turning towards an end inclination / azimuth at a constant dogleg.
+   - History: every change is kept (up to 30 steps, undo / redo), the original wellpath is kept, and named
+     versions can be saved with the well. The wellpath downloads as CSV or Excel.
+   Paths are minimum curvature, with a station at least every 30 m.
    =================================================================================== */
 const WP_STEP=30;
 function wpDir(inc,azi){let i=inc*Math.PI/180,a=azi*Math.PI/180;return [Math.sin(i)*Math.cos(a),Math.sin(i)*Math.sin(a),Math.cos(i)]}
@@ -3262,14 +3262,6 @@ function wpStationAt(rows,md){
   let a=rows[i-1],b=rows[i],t=(md-a.MD)/(b.MD-a.MD),d=wpIncAzi([0,1,2].map(k=>wpDir(a.Inc,a.Azimuth)[k]*(1-t)+wpDir(b.Inc,b.Azimuth)[k]*t),a.Azimuth),q=minCurveStep(a.MD,a.Inc,a.Azimuth,a.NS,a.EW,a.TVD,md,d.inc,d.azi);
   return {MD:md,TVD:q.TVD,Inc:d.inc,Azimuth:d.azi,NS:q.NS,EW:q.EW,DLS:0};
 }
-function wpBackup(){state.wpBackup=JSON.parse(JSON.stringify({wp:state.wp,wpRaw:state.wpRaw,strings:state.strings,sections:state.sections,timeDepth:state.timeDepth||[]}))}
-function wpUndo(){
-  let b=state.wpBackup;if(!b){wpMsg('Nothing to undo.');return}
-  state.wp=b.wp;state.wpRaw=b.wpRaw;state.strings=b.strings;state.sections=b.sections;state.timeDepth=b.timeDepth;state.wpBackup=null;
-  renderWellpath();wpMsg('Undone: the wellpath, casing depths, sections and time vs depth rows are back as they were.');
-}
-function wpMsg(t,bad){let e=$('wpMsg');if(e){e.textContent=t;e.className='note'+(bad?' bad':'')}}
-/* recompute every TVD from the (new) path for the MDs the app holds */
 function wpRecalcDepths(fromMD){
   /* only depths at or below fromMD are recomputed, so entries above a change are left exactly as they were */
   let lo=Number.isFinite(fromMD)?fromMD-0.5:-Infinity,ok=md=>Number.isFinite(n(md))&&String(md).trim()!==''&&n(md)>=lo,tv=md=>mdToTvd(n(md));
@@ -3281,73 +3273,6 @@ function wpTdOf(){let secs=(state.sections||[]).filter(s=>n(s.ToMD)>0);let d=sec
 function wpHoleLabel(s){let h=n(s.Hole);return Number.isFinite(h)&&h>0?fmt(h,3).replace(/\.?0+$/,'')+'"':(s.Section||'section')}
 
 /* ------------------------------ 1. change the well length ------------------------------ */
-function wpApplyLength(){
-  let base=trajectoryRows();
-  if(base.length<2){wpMsg('Load or build a wellpath first.',true);return}
-  let L=n($('wpBy').value),sel=$('wpAt').value,X=sel==='custom'?n($('wpAtMd').value):n(sel),mode=$('wpMode').value;
-  if(!Number.isFinite(L)||Math.abs(L)<0.01){wpMsg('Enter the length to add (or a negative number to remove), in metres.',true);return}
-  if(!Number.isFinite(X)){wpMsg('Enter the measured depth where the change applies.',true);return}
-  let last=base[base.length-1];
-  if(X<base[0].MD+0.5||X>last.MD+0.5){wpMsg('That depth is outside the wellpath (0 to '+fmt(last.MD,0)+' mMD).',true);return}
-  X=Math.min(X,last.MD);let atEnd=X>=last.MD-0.5;
-  if(L<0&&-L>X-base[0].MD-1){wpMsg('Cannot remove more length than the well has above that depth.',true);return}
-  if(L<0){let cut=X+L,inside=(state.strings||[]).filter(s=>n(s.ShoeMD)>cut+0.5&&n(s.ShoeMD)<X-0.5);
-    if(inside.length){wpMsg('A casing shoe ('+inside.map(s=>(s.String||'')+' at '+fmt(n(s.ShoeMD),0)+' mMD').join(', ')+') lies inside the interval you would remove. Move that shoe first.',true);return}}
-  if(mode==='steer'&&!atEnd){wpMsg('Steering is only possible at the end of the well. Choose "Hold" or pick the TD.',true);return}
-  let tdBefore=wpTdOf();
-  let head=base.filter(r=>r.MD<X-0.01).map(r=>({...r})),sX=wpStationAt(base,X),tail=base.filter(r=>r.MD>X+0.01).map(r=>({...r}));
-  let rows,kink=0,added=0;
-  if(L>0){
-    head.push(sX);
-    let before=head.length;
-    wpAdvance(head,L,mode==='steer'?n($('wpSInc').value):sX.Inc,mode==='steer'?n($('wpSAzi').value):sX.Azimuth,mode==='steer'?n($('wpSDls').value):0);
-    added=head.length-before;
-    let e=head[head.length-1],dT=e.TVD-sX.TVD,dN=e.NS-sX.NS,dE=e.EW-sX.EW;
-    tail.forEach(r=>{r.MD+=L;r.TVD+=dT;r.NS+=dN;r.EW+=dE});
-    rows=head.concat(tail);
-  }else{
-    let cut=wpStationAt(base,X+L);head=base.filter(r=>r.MD<cut.MD-0.01).map(r=>({...r}));head.push(cut);
-    let dT=cut.TVD-sX.TVD,dN=cut.NS-sX.NS,dE=cut.EW-sX.EW;
-    tail.forEach(r=>{r.MD+=L;r.TVD+=dT;r.NS+=dN;r.EW+=dE});
-    if(tail.length){let a=wpDir(cut.Inc,cut.Azimuth),b=wpDir(sX.Inc,sX.Azimuth),dl=Math.acos(Math.max(-1,Math.min(1,a[0]*b[0]+a[1]*b[1]+a[2]*b[2])))*180/Math.PI;kink=dl}
-    rows=head.concat(tail);
-  }
-  wpBackup();
-  state.wp=calcDLS(rows.map((r,i)=>({MD:r.MD,TVD:r.TVD,Inc:r.Inc,Azimuth:r.Azimuth,NS:r.NS,EW:r.EW,DLS:0})));
-  /* everything at or below X moves by L (a shoe sitting at X is the TD of the section being changed) */
-  let mv=v=>Number.isFinite(n(v))&&String(v).trim()!==''&&n(v)>=X-0.5?n(v)+L:v;
-  (state.strings||[]).forEach(s=>{s.ShoeMD=mv(s.ShoeMD);if(n(s.TopMD)>X+0.5)s.TopMD=n(s.TopMD)+L;if(n(s.TopCementMD)>X+0.5)s.TopCementMD=n(s.TopCementMD)+L});
-  (state.sections||[]).forEach(s=>{s.FromMD=mv(s.FromMD);s.ToMD=mv(s.ToMD)});
-  (state.timeDepth||[]).forEach(r=>{r.FromMD=mv(r.FromMD);r.ToMD=mv(r.ToMD)});
-  wpRecalcDepths(L>0?X:X+L);
-  let tdAfter=wpTdOf(),sec=(state.sections||[]).find(s=>Math.abs(n(s.ToMD)-(X+L))<0.6);
-  let maxDls=Math.max(0,...state.wp.filter(r=>r.MD>=Math.min(X,X+L)-1&&r.MD<=Math.max(X,X+L)+WP_STEP).map(r=>r.DLS||0));
-  let msg=(L>0?'Added ':'Removed ')+fmt(Math.abs(L),1)+' m at '+fmt(X,0)+' mMD'+(sec?' ('+wpHoleLabel(sec)+' section)':'')+'. '
-    +(tdBefore&&tdAfter?'TD '+fmt(tdBefore.md,0)+' to '+fmt(tdAfter.md,0)+' mMD, '+fmt(tdBefore.tvd,0)+' to '+fmt(tdAfter.tvd,0)+' mTVD. ':'')
-    +(L>0?added+' new survey stations'+(mode==='steer'?', max DLS '+fmt(maxDls,1)+' deg/30m':', holding the same inclination and azimuth')+'. ':'')
-    +(kink>0.5?'Warning: removing length mid-well leaves a '+fmt(kink,1)+' deg bend where the path rejoins; check the DLS. ':'')
-    +'Casing and section depths were updated. Time vs depth rows were moved too, but their durations are unchanged: update the days. Undo is available.';
-  renderWellpath();wpMsg(msg,kink>0.5);
-}
-
-/* ------------------------------ 2. build a wellpath ------------------------------ */
-function wpPlan(){let g=state.general;if(!g.wpPlan)g.wpPlan={kop:500,dls:2,tgt:'',ns:0,ew:0,tvd:0,extra:0,segs:[]};return g.wpPlan}
-function wpReadSegs(){
-  let out=[];
-  [...$('wpSegTable').querySelectorAll('tbody tr')].forEach(tr=>{
-    let g=c=>{let el=tr.querySelector('input[data-col="'+c+'"]');return el?el.value.trim():''},num=c=>{let v=g(c);return v===''?'':n(v)};
-    let o={Name:g('Name'),Length:num('Length'),Inc:num('Inc'),Azi:num('Azi'),DLS:num('DLS')};
-    if(o.Name||o.Length!=='')out.push(o);
-  });
-  return out;
-}
-function wpPlanRead(){
-  let p=wpPlan();
-  p.kop=n($('wpKop').value);p.dls=n($('wpJDls').value);p.tgt=$('wpTgt').value;p.extra=n($('wpExtra').value)||0;
-  p.ns=n($('wpTgtNs').value);p.ew=n($('wpTgtEw').value);p.tvd=n($('wpTgtTvd').value);
-  if($('wpSegTable'))p.segs=wpReadSegs();
-  return p;
-}
 function wpTargetCentre(p){
   if(p.tgt!==''&&p.tgt!=='manual'){let t=validTargets()[n(p.tgt)];if(t)return {ns:n(t.NS),ew:n(t.EW),tvd:n(t.TVD)}}
   return {ns:p.ns,ew:p.ew,tvd:p.tvd};
@@ -3368,14 +3293,6 @@ function wpSolveJ(kop,dls,T,extra){
   if(extra>0)segs.push({Name:'Hold beyond target',Length:extra,Inc:+incDeg.toFixed(3),Azi:+az.toFixed(3),DLS:0});
   return {segs,inc:incDeg,azi:az};
 }
-function wpGenerate(){
-  let p=wpPlanRead(),T=wpTargetCentre(p);
-  if(![T.ns,T.ew,T.tvd].every(Number.isFinite)){wpMsg('Pick a target, or enter its NS, EW and TVD.',true);return}
-  let r=wpSolveJ(p.kop,p.dls,T,p.extra);
-  if(r.err){wpMsg(r.err,true);return}
-  p.segs=r.segs;renderWellpath();
-  wpMsg('Build-and-hold solved: tangent '+fmt(r.inc,1)+' deg inclination on azimuth '+fmt(r.azi,1)+'. Edit the segments if you like, then press "Apply as wellpath".');
-}
 function wpBuildRows(segs){
   let first=segs.find(s=>Number.isFinite(s.Length)&&s.Length>0);if(!first)return null;
   let rows=[{MD:0,TVD:0,Inc:0,Azimuth:(Number.isFinite(first.Azi)&&first.Azi!=='')?first.Azi:0,NS:0,EW:0,DLS:0}];
@@ -3384,40 +3301,231 @@ function wpBuildRows(segs){
     wpAdvance(rows,s.Length,(Number.isFinite(s.Inc)&&s.Inc!=='')?s.Inc:last.Inc,(Number.isFinite(s.Azi)&&s.Azi!=='')?s.Azi:last.Azimuth,(Number.isFinite(s.DLS)&&s.DLS!=='')?s.DLS:0)});
   return calcDLS(rows);
 }
-function wpAddSeg(){let p=wpPlanRead();p.segs.push({Name:'',Length:100,Inc:'',Azi:'',DLS:0});renderWellpath()}
-function wpApplyBuild(){
-  let p=wpPlanRead(),rows=wpBuildRows(p.segs);
-  if(!rows||rows.length<2){wpMsg('Add at least one segment with a length.',true);return}
-  if((state.wp||[]).length>1&&!confirm('This replaces the current wellpath with the planned one. Casing and section MDs stay as they are and their TVDs are recalculated. You can undo it afterwards. Continue?'))return;
-  let td=wpTdOf();
-  wpBackup();state.wp=rows;state.wpRaw=[];wpRecalcDepths();
-  let e=rows[rows.length-1];
-  renderWellpath();
-  wpMsg('Wellpath applied: '+rows.length+' stations to '+fmt(e.MD,0)+' mMD / '+fmt(e.TVD,0)+' mTVD, final inclination '+fmt(e.Inc,1)+' deg, '+fmt(Math.hypot(e.NS,e.EW),0)+' m departure.'
-    +(td&&td.md>e.MD+0.5?' The deepest section TD ('+fmt(td.md,0)+' mMD) is deeper than this path: use "Change well length" to extend it, or lower the TD. ':' ')+'Undo is available.',!!(td&&td.md>e.MD+0.5));
+/* ---- history: every change is stored, so any number of steps can be undone; the original is kept ---- */
+function wpSnap(){return JSON.parse(JSON.stringify({wp:state.wp||[],wpRaw:state.wpRaw||[],strings:state.strings||[],sections:state.sections||[],timeDepth:state.timeDepth||[]}))}
+function wpApplySnap(sn){let c=JSON.parse(JSON.stringify(sn));state.wp=c.wp;state.wpRaw=c.wpRaw;state.strings=c.strings;state.sections=c.sections;state.timeDepth=c.timeDepth}
+/* call just before a change: keeps the original (once) and the state to go back to */
+function wpCommit(label){
+  if(!state.wpOriginal)state.wpOriginal=wpSnap();
+  (state.wpHistory=state.wpHistory||[]).push({label,snap:wpSnap()});
+  if(state.wpHistory.length>30)state.wpHistory.shift();
+  state.wpRedo=[];
+}
+function wpUndo(){
+  let h=state.wpHistory||[];if(!h.length){wpMsg('Files',['Nothing to undo.']);return}
+  let e=h.pop();(state.wpRedo=state.wpRedo||[]).push({label:e.label,snap:wpSnap()});
+  wpApplySnap(e.snap);renderWellpath();wpMsg('Files',['Undone: '+e.label+'.']);
+}
+function wpRedo(){
+  let r=state.wpRedo||[];if(!r.length){wpMsg('Files',['Nothing to redo.']);return}
+  let e=r.pop();(state.wpHistory=state.wpHistory||[]).push({label:e.label,snap:wpSnap()});
+  wpApplySnap(e.snap);renderWellpath();wpMsg('Files',['Redone: '+e.label+'.']);
+}
+function wpRevertOriginal(){
+  if(!state.wpOriginal){wpMsg('Files',['No changes have been made, so this is still the original wellpath.']);return}
+  if(!confirm('Go back to the wellpath, casing depths, sections and time vs depth rows as they were before your first change? You can still undo this.'))return;
+  wpCommit('Back to the original wellpath');wpApplySnap(state.wpOriginal);renderWellpath();
+  wpMsg('Files',['Back to the original wellpath. Press Undo to return to your latest version.']);
+}
+/* message boxes: one per card, a few short lines each */
+function wpMsg(which,lines,bad){let e=$('wpMsg'+which);if(e){e.innerHTML=lines.map(esc).join('<br>');e.className='note'+(bad?' bad':'')}}
+const wpF0=v=>Number.isFinite(v)?v.toLocaleString('en-GB',{maximumFractionDigits:0}):'-';
+
+/* ------------------------------ change the well length ------------------------------ */
+function wpApplyLength(){
+  let base=trajectoryRows(),bad=t=>wpMsg('Len',[t],true);
+  if(base.length<2){bad('Load or build a wellpath first.');return}
+  let L=n($('wpBy').value),sel=$('wpAt').value,X=sel==='custom'?n($('wpAtMd').value):n(sel),mode=$('wpMode').value;
+  if(!Number.isFinite(L)||Math.abs(L)<0.01){bad('Enter how many metres to add (or a negative number to shorten).');return}
+  if(!Number.isFinite(X)||(sel==='custom'&&String($('wpAtMd').value).trim()==='')){bad('Enter the measured depth where the change applies.');return}
+  let last=base[base.length-1];
+  if(X<base[0].MD+0.5||X>last.MD+0.5){bad('That depth is outside the wellpath (0 to '+wpF0(last.MD)+' mMD).');return}
+  X=Math.min(X,last.MD);let atEnd=X>=last.MD-0.5;
+  if(L<0&&-L>X-base[0].MD-1){bad('The well is not that long above that depth.');return}
+  if(L<0){let cut=X+L,inside=(state.strings||[]).filter(s=>n(s.ShoeMD)>cut+0.5&&n(s.ShoeMD)<X-0.5);
+    if(inside.length){bad('The casing shoe at '+inside.map(s=>wpF0(n(s.ShoeMD))+' mMD ('+(String(s.String||'').trim()||'string')+')').join(', ')+' is inside the part you want to remove. Move that shoe first.');return}}
+  if(mode==='steer'&&!atEnd){bad('Turning to a new direction only works at the end of the well. Pick the TD, or keep the current direction.');return}
+  let tdBefore=wpTdOf();
+  let head=base.filter(r=>r.MD<X-0.01).map(r=>({...r})),sX=wpStationAt(base,X),tail=base.filter(r=>r.MD>X+0.01).map(r=>({...r}));
+  let rows,kink=0,added=0,sInc=n($('wpSInc').value),sAzi=n($('wpSAzi').value),sDls=n($('wpSDls').value);
+  if(mode==='steer'&&![sInc,sAzi,sDls].every(Number.isFinite)){bad('Enter the inclination, azimuth and dogleg to turn to.');return}
+  if(L>0){
+    head.push(sX);
+    let before=head.length;
+    wpAdvance(head,L,mode==='steer'?sInc:sX.Inc,mode==='steer'?sAzi:sX.Azimuth,mode==='steer'?sDls:0);
+    added=head.length-before;
+    let e=head[head.length-1],dT=e.TVD-sX.TVD,dN=e.NS-sX.NS,dE=e.EW-sX.EW;
+    tail.forEach(r=>{r.MD+=L;r.TVD+=dT;r.NS+=dN;r.EW+=dE});
+    rows=head.concat(tail);
+  }else{
+    let cut=wpStationAt(base,X+L);head=base.filter(r=>r.MD<cut.MD-0.01).map(r=>({...r}));head.push(cut);
+    let dT=cut.TVD-sX.TVD,dN=cut.NS-sX.NS,dE=cut.EW-sX.EW;
+    tail.forEach(r=>{r.MD+=L;r.TVD+=dT;r.NS+=dN;r.EW+=dE});
+    if(tail.length){let a=wpDir(cut.Inc,cut.Azimuth),b=wpDir(sX.Inc,sX.Azimuth);kink=Math.acos(Math.max(-1,Math.min(1,a[0]*b[0]+a[1]*b[1]+a[2]*b[2])))*180/Math.PI}
+    rows=head.concat(tail);
+  }
+  wpCommit((L>0?'Added ':'Removed ')+wpF0(Math.abs(L))+' m at '+wpF0(X)+' mMD');
+  state.wp=calcDLS(rows.map(r=>({MD:r.MD,TVD:r.TVD,Inc:r.Inc,Azimuth:r.Azimuth,NS:r.NS,EW:r.EW,DLS:0})));
+  /* everything at or below X moves by L (a shoe sitting at X is the TD of the section being changed) */
+  let mv=v=>Number.isFinite(n(v))&&String(v).trim()!==''&&n(v)>=X-0.5?n(v)+L:v;
+  (state.strings||[]).forEach(s=>{s.ShoeMD=mv(s.ShoeMD);if(n(s.TopMD)>X+0.5)s.TopMD=n(s.TopMD)+L;if(n(s.TopCementMD)>X+0.5)s.TopCementMD=n(s.TopCementMD)+L});
+  (state.sections||[]).forEach(s=>{s.FromMD=mv(s.FromMD);s.ToMD=mv(s.ToMD)});
+  (state.timeDepth||[]).forEach(r=>{r.FromMD=mv(r.FromMD);r.ToMD=mv(r.ToMD)});
+  wpRecalcDepths(L>0?X:X+L);
+  let tdAfter=wpTdOf(),sec=(state.sections||[]).find(s=>Math.abs(n(s.ToMD)-(X+L))<0.6);
+  let maxDls=Math.max(0,...state.wp.filter(r=>r.MD>=Math.min(X,X+L)-1&&r.MD<=Math.max(X,X+L)+WP_STEP).map(r=>r.DLS||0));
+  let lines=[(L>0?'Added ':'Removed ')+wpF0(Math.abs(L))+' m at '+wpF0(X)+' mMD'+(sec?' ('+wpHoleLabel(sec)+' section).':'.')];
+  if(tdBefore&&tdAfter)lines.push('TD: '+wpF0(tdBefore.md)+' → '+wpF0(tdAfter.md)+' mMD, '+wpF0(tdBefore.tvd)+' → '+wpF0(tdAfter.tvd)+' mTVD.');
+  if(L>0)lines.push(added+' new survey stations, '+(mode==='steer'?'turning to '+fmt(sInc,1)+'° inclination and '+fmt(sAzi,1)+'° azimuth (max dogleg '+fmt(maxDls,1)+'°/30 m).':'same inclination and azimuth.'));
+  lines.push('Casing shoes, sections and time vs depth rows were moved to match. Time vs depth durations are unchanged, so update the days.');
+  if(kink>0.5)lines.push('Check the dogleg: shortening here leaves a '+fmt(kink,1)+'° bend where the path rejoins.');
+  renderWellpath();wpMsg('Len',lines,kink>0.5);
 }
 
+/* ------------------------------ build a wellpath ------------------------------ */
+function wpPlan(){let g=state.general;if(!g.wpPlan)g.wpPlan={kop:500,dls:2,tgt:'',ns:0,ew:0,tvd:0,extra:0,segs:[]};return g.wpPlan}
+function wpReadSegs(){
+  let out=[];
+  [...document.querySelectorAll('#wpSegTable tbody tr')].forEach(tr=>{
+    let g=c=>{let el=tr.querySelector('input[data-col="'+c+'"]');return el?el.value.trim():''},num=c=>{let v=g(c);return v===''?'':n(v)};
+    let o={Name:g('Name'),Length:num('Length'),Inc:num('Inc'),Azi:num('Azi'),DLS:num('DLS')};
+    if(o.Name||o.Length!=='')out.push(o);
+  });
+  return out;
+}
+function wpPlanRead(){
+  let p=wpPlan();
+  p.kop=n($('wpKop').value);p.dls=n($('wpJDls').value);p.tgt=$('wpTgt').value;p.extra=n($('wpExtra').value)||0;
+  p.ns=n($('wpTgtNs').value);p.ew=n($('wpTgtEw').value);p.tvd=n($('wpTgtTvd').value);
+  if($('wpSegTable'))p.segs=wpReadSegs();
+  return p;
+}
+function wpGenerate(){
+  let p=wpPlanRead(),T=wpTargetCentre(p);
+  if(![T.ns,T.ew,T.tvd].every(Number.isFinite)){wpMsg('Build',['Pick a target, or enter its north, east and TVD.'],true);return}
+  let r=wpSolveJ(p.kop,p.dls,T,p.extra);
+  if(r.err){wpMsg('Build',[r.err],true);return}
+  p.segs=r.segs;renderWellpath();
+  wpMsg('Build',['Solved: build to '+fmt(r.inc,1)+'° inclination on azimuth '+fmt(r.azi,1)+'°, then hold to the target.','Edit the segments if you like, then press "Use this wellpath".']);
+}
+function wpAddSeg(){let p=wpPlanRead();p.segs.push({Name:'',Length:100,Inc:'',Azi:'',DLS:0});renderWellpath()}
+function wpRemoveSeg(i){let p=wpPlanRead();p.segs.splice(i,1);renderWellpath()}
+function wpApplyBuild(){
+  let p=wpPlanRead(),rows=wpBuildRows(p.segs);
+  if(!rows||rows.length<2){wpMsg('Build',['Add at least one segment with a length.'],true);return}
+  if((state.wp||[]).length>1&&!confirm('Replace the current wellpath with this one? Casing and section measured depths stay, and their TVDs are recalculated. You can undo it.'))return;
+  let td=wpTdOf();
+  wpCommit('Built a new wellpath');state.wp=rows;state.wpRaw=[];wpRecalcDepths();
+  let e=rows[rows.length-1],short=td&&td.md>e.MD+0.5;
+  renderWellpath();
+  wpMsg('Build',['New wellpath in use: '+rows.length+' stations to '+wpF0(e.MD)+' mMD / '+wpF0(e.TVD)+' mTVD, final inclination '+fmt(e.Inc,1)+'°, '+wpF0(Math.hypot(e.NS,e.EW))+' m departure.']
+    .concat(short?['The deepest section TD ('+wpF0(td.md)+' mMD) is deeper than this wellpath. Extend it with "Change well length", or lower the TD.']:[]),short);
+}
+
+/* ------------------------------ saved versions and files ------------------------------ */
+function wpSaveVersion(){
+  if(!(state.wp&&state.wp.length>1)){wpMsg('Files',['There is no wellpath to save yet.'],true);return}
+  let v=state.wpVersions=state.wpVersions||[];
+  if(v.length>=10){wpMsg('Files',['You can keep up to 10 versions. Delete one first.'],true);return}
+  let name=($('wpVerName').value||'').trim()||('Version '+(v.length+1));
+  v.push({name,date:new Date().toISOString().slice(0,10),td:wpTdOf(),snap:wpSnap()});
+  if(typeof drillwiseSaveWell==='function')drillwiseSaveWell();
+  renderWellpath();wpMsg('Files',['Saved "'+name+'" and stored the well in this browser. Use "Download well JSON" on Inputs to keep a copy as a file.']);
+}
+function wpLoadVersion(i){
+  let v=(state.wpVersions||[])[i];if(!v)return;
+  wpCommit('Before loading "'+v.name+'"');wpApplySnap(v.snap);renderWellpath();wpMsg('Files',['Loaded "'+v.name+'". Press Undo to go back.']);
+}
+function wpDeleteVersion(i){
+  let v=(state.wpVersions||[])[i];if(!v||!confirm('Delete the saved version "'+v.name+'"?'))return;
+  state.wpVersions.splice(i,1);if(typeof drillwiseSaveWell==='function')drillwiseSaveWell();renderWellpath();wpMsg('Files',['Deleted "'+v.name+'".']);
+}
+function wpExportRows(){return calcDLS(trajectoryRows().map(r=>({...r})))}
+function wpDownload(blob,name){let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+function wpDownloadCsv(){
+  let rows=wpExportRows();if(rows.length<2){wpMsg('Files',['There is no wellpath to download.'],true);return}
+  let f=(v,d)=>Number.isFinite(v)?v.toFixed(d):'';
+  let csv=['MD (m)','Inclination (deg)','Azimuth (deg)','TVD (m)','N/S (m)','E/W (m)','DLS (deg/30m)'].join(',')+'\n'+rows.map(r=>[f(r.MD,2),f(r.Inc,3),f(r.Azimuth,3),f(r.TVD,2),f(r.NS,2),f(r.EW,2),f(r.DLS,2)].join(',')).join('\n')+'\n';
+  wpDownload(new Blob([csv],{type:'text/csv'}),ceFileBase()+'_wellpath.csv');
+  wpMsg('Files',['Downloaded '+rows.length+' stations as CSV.']);
+}
+async function wpDownloadExcel(){
+  let rows=wpExportRows();if(rows.length<2){wpMsg('Files',['There is no wellpath to download.'],true);return}
+  wpMsg('Files',['Preparing the Excel file...']);
+  try{
+    let EJ=await ensureExcelJS(),now=new Date();
+    const NAVY='FF003B5C',PALE='FFEEF8FC',GREY='FF607987',INK='FF102A3A',LINE='FFCFE4EC',WHITE='FFFFFFFF';
+    let fill=argb=>({type:'pattern',pattern:'solid',fgColor:{argb}});
+    let wb=new EJ.Workbook();wb.creator='DrillWise';wb.created=now;
+    /* sheet 1: the survey only, starting at A1, so it can be loaded straight into other tools */
+    let ws=wb.addWorksheet('Wellpath',{views:[{state:'frozen',ySplit:1,showGridLines:false}]});
+    let cols=[['MD (m)',12,'#,##0.00'],['Inclination (deg)',16,'0.000'],['Azimuth (deg)',15,'0.000'],['TVD (m)',12,'#,##0.00'],['N/S (m)',12,'#,##0.00'],['E/W (m)',12,'#,##0.00'],['DLS (deg/30m)',15,'0.00']];
+    ws.columns=cols.map(c=>({width:c[1]}));
+    cols.forEach((c,i)=>{let cell=ws.getCell(1,i+1);cell.value=c[0];cell.font={bold:true,color:{argb:WHITE}};cell.fill=fill(NAVY);cell.alignment={horizontal:'right',vertical:'middle',wrapText:true}});
+    ws.getRow(1).height=22;
+    rows.forEach((r,k)=>{[r.MD,r.Inc,r.Azimuth,r.TVD,r.NS,r.EW,r.DLS].forEach((v,i)=>{let cell=ws.getCell(k+2,i+1);cell.value=Number.isFinite(v)?v:null;cell.numFmt=cols[i][2];cell.border={bottom:{style:'thin',color:{argb:LINE}}};cell.font={color:{argb:INK}}})});
+    /* sheet 2: what the wellpath is, and what was changed */
+    let sm=wb.addWorksheet('Summary',{views:[{showGridLines:false}]});sm.columns=[{width:30},{width:16},{width:16},{width:16},{width:16}];
+    let r=1,title=(text)=>{sm.mergeCells(r,1,r,5);let c=sm.getCell(r,1);c.value=text;c.font={bold:true,color:{argb:WHITE},size:12};c.fill=fill(NAVY);c.alignment={vertical:'middle',indent:1};sm.getRow(r).height=22;r++};
+    let kv=(k,v,fmtc)=>{sm.getCell(r,1).value=k;sm.getCell(r,1).font={color:{argb:GREY}};let c=sm.getCell(r,2);c.value=v;if(fmtc)c.numFmt=fmtc;c.alignment={horizontal:'left'};r++};
+    let head=(labels)=>{labels.forEach((l,i)=>{let c=sm.getCell(r,i+1);c.value=l;c.font={bold:true,color:{argb:INK}};c.fill=fill(PALE);c.border={bottom:{style:'medium',color:{argb:NAVY}}};c.alignment={horizontal:i?'right':'left'}});r++};
+    let line=(vals,fm)=>{vals.forEach((v,i)=>{let c=sm.getCell(r,i+1);c.value=v;if(fm&&fm[i])c.numFmt=fm[i];c.border={bottom:{style:'thin',color:{argb:LINE}}};c.alignment={horizontal:i?'right':'left'}});r++};
+    let last=rows[rows.length-1],name=String((state.general&&state.general.caseName)||'').trim()||'Unnamed well';
+    title('Wellpath summary');
+    kv('Well',name);kv('Exported',now.toISOString().slice(0,10));kv('Survey stations',rows.length,'0');
+    kv('TD',last.MD,'#,##0.0" mMD"');kv('TD TVD',last.TVD,'#,##0.0" mTVD"');kv('Max inclination',Math.max(...rows.map(x=>x.Inc||0)),'0.0"°"');kv('Departure at TD',Math.hypot(last.NS,last.EW),'#,##0" m"');kv('Max DLS',Math.max(...rows.map(x=>x.DLS||0)),'0.0" deg/30 m"');
+    r++;
+    let changes=(state.wpHistory||[]).map(h=>h.label);
+    title('Changes made in this session');
+    if(changes.length)changes.forEach((c,i)=>{sm.getCell(r,1).value=(i+1)+'. '+c;r++});else{sm.getCell(r,1).value='None: this is the original wellpath.';sm.getCell(r,1).font={color:{argb:GREY}};r++}
+    r++;
+    let strs=(state.strings||[]).filter(s=>n(s.ShoeMD)>0).sort((a,b)=>n(a.ShoeMD)-n(b.ShoeMD));
+    if(strs.length){title('Casing and liner shoes on this wellpath');head(['String','OD (in)','Shoe (mMD)','Shoe (mTVD)']);strs.forEach(s=>line([String(s.String||s.Label||''),Number.isFinite(n(s.OD))?n(s.OD):null,n(s.ShoeMD),n(s.ShoeTVD)],[null,'0.000','#,##0.0','#,##0.0']));r++}
+    let secs=(state.sections||[]).filter(s=>n(s.ToMD)>n(s.FromMD));
+    if(secs.length){title('Hole sections');head(['Hole (in)','From (mMD)','To (mMD)','To (mTVD)']);secs.forEach(s=>line([n(s.Hole)>0?n(s.Hole):String(s.Section||''),n(s.FromMD),n(s.ToMD),n(s.ToTVD)],['0.###','#,##0.0','#,##0.0','#,##0.0']))}
+    let buf=await wb.xlsx.writeBuffer();
+    wpDownload(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),ceFileBase()+'_wellpath.xlsx');
+    wpMsg('Files',['Downloaded '+rows.length+' stations as Excel (sheet "Wellpath" is the survey, sheet "Summary" has the details).']);
+  }catch(e){wpMsg('Files',['Excel export failed: '+(e&&e.message||e)+'. The CSV download works offline.'],true)}
+}
+
+/* ------------------------------ the cards ------------------------------ */
+function wpSegTableHtml(segs){
+  if(!segs.length)return '<p class="note">No segments yet. Solve a profile to a target, or add a segment.</p>';
+  return '<table><thead><tr><th>Name</th><th>Length (m)</th><th>End inclination (&deg;)</th><th>End azimuth (&deg;)</th><th>Dogleg (&deg;/30 m)</th><th></th></tr></thead><tbody>'
+    +segs.map((r,i)=>'<tr>'+['Name','Length','Inc','Azi','DLS'].map(c=>'<td><input data-col="'+c+'"'+(c==='Name'?'':' type="number" step="any"')+' value="'+esc(r[c]??'')+'"></td>').join('')+'<td><button onclick="wpRemoveSeg('+i+')" title="Remove this segment">&times;</button></td></tr>').join('')+'</tbody></table>';
+}
 function wpPlannerHtml(){
   let p=wpPlan(),secs=(state.sections||[]).filter(s=>n(s.ToMD)>0),tg=validTargets(),has=(state.wp||[]).length>1;
   let lastTD=secs.length?secs.slice().sort((a,b)=>n(b.ToMD)-n(a.ToMD))[0]:null;
-  let opts=secs.map(s=>'<option value="'+n(s.ToMD)+'"'+(s===lastTD?' selected':'')+'>'+esc(wpHoleLabel(s))+' section TD &middot; '+fmt(n(s.ToMD),0)+' mMD</option>').join('')+'<option value="custom"'+(lastTD?'':' selected')+'>Another depth (enter below)</option>';
-  let segs=(p.segs&&p.segs.length)?p.segs:[];
-  return '<div class="card"><h3>Wellpath planner</h3><p class="note">Change the well and everything that depends on it follows: casing shoe TVDs, section depths and the time vs depth rows. Every change can be undone once.</p>'
-  +'<h3 style="font-size:14px;margin-top:12px">Change well length</h3><p class="note">For example: drill the last section 200 m longer than planned. The extra length continues the path; anything deeper moves down with it.</p>'
-  +'<div class="grid3"><label>At<select id="wpAt" onchange="document.getElementById(\'wpAtMdWrap\').style.display=this.value===\'custom\'?\'\':\'none\'">'+opts+'</select></label>'
-  +'<label>Add length (m, negative removes)<input id="wpBy" type="number" step="10" value="'+(n(state.general.wpBy)||200)+'" onchange="state.general.wpBy=n(this.value)"></label>'
-  +'<label>Extra length goes<select id="wpMode" onchange="document.getElementById(\'wpSteer\').style.display=this.value===\'steer\'?\'\':\'none\'"><option value="hold">Straight on (hold inclination and azimuth)</option><option value="steer">Steer to a new direction (end of well only)</option></select></label></div>'
+  let opts=secs.map(s=>'<option value="'+n(s.ToMD)+'"'+(s===lastTD?' selected':'')+'>'+esc(wpHoleLabel(s))+' section TD ('+wpF0(n(s.ToMD))+' mMD)</option>').join('')+'<option value="custom"'+(lastTD?'':' selected')+'>Other depth...</option>';
+  let hist=state.wpHistory||[],redo=state.wpRedo||[],vers=state.wpVersions||[];
+  let len='<div class="card"><h3>Change well length</h3><p class="note">Make the well longer or shorter, for example drill the 8.5" section 200 m longer than planned. Casing shoes, sections and time vs depth rows below that point move with it.</p>'
+  +'<div class="grid3"><label>Change at<select id="wpAt" onchange="document.getElementById(\'wpAtMdWrap\').style.display=this.value===\'custom\'?\'\':\'none\'">'+opts+'</select></label>'
+  +'<label>Length to add (m)<input id="wpBy" type="number" step="10" value="'+(n(state.general.wpBy)||200)+'" onchange="state.general.wpBy=n(this.value)"></label>'
+  +'<label>Direction of the added length<select id="wpMode" onchange="document.getElementById(\'wpSteer\').style.display=this.value===\'steer\'?\'\':\'none\'"><option value="hold">Same inclination and azimuth</option><option value="steer">Turn to a new direction (TD only)</option></select></label></div>'
+  +'<p class="note" style="margin-top:4px">Use a negative number to shorten the well.</p>'
   +'<div class="grid3" id="wpAtMdWrap" style="'+(lastTD?'display:none':'')+'"><label>Measured depth (m)<input id="wpAtMd" type="number" step="10"></label></div>'
-  +'<div class="grid3" id="wpSteer" style="display:none"><label>Inclination to reach (deg)<input id="wpSInc" type="number" step="1" value="90"></label><label>Azimuth to reach (deg)<input id="wpSAzi" type="number" step="1" value="'+(has?fmt(trajectoryRows().at(-1).Azimuth,0):0)+'"></label><label>Dogleg (deg/30 m)<input id="wpSDls" type="number" step="0.5" value="3"></label></div>'
-  +'<div class="actions"><button class="dark" onclick="wpApplyLength()"'+(has?'':' disabled title="Load or build a wellpath first"')+'>Apply change</button><button onclick="wpUndo()"'+(state.wpBackup?'':' disabled')+'>Undo last change</button></div>'
-  +'<h3 style="font-size:14px;margin-top:16px">Build a wellpath</h3><p class="note">Solves a vertical, build and hold profile to a target (from the Targets table below, or typed in), then lists the segments. Each segment runs for a length while turning to an end inclination and azimuth at a constant dogleg; edit them freely. Measured depth starts at 0 at the rotary table.</p>'
-  +'<div class="grid3"><label>Kick-off depth (mMD)<input id="wpKop" type="number" step="50" value="'+p.kop+'"></label><label>Build rate (deg/30 m)<input id="wpJDls" type="number" step="0.5" value="'+p.dls+'"></label>'
-  +'<label>Target<select id="wpTgt" onchange="document.getElementById(\'wpTgtMan\').style.display=this.value===\'manual\'||this.value===\'\'?\'\':\'none\'"><option value=""'+(p.tgt===''?' selected':'')+'>Enter manually</option>'+tg.map((t,i)=>'<option value="'+i+'"'+(String(p.tgt)===String(i)?' selected':'')+'>'+esc(t.Name||('Target '+(i+1)))+' ('+fmt(n(t.TVD),0)+' mTVD)</option>').join('')+'</select></label></div>'
+  +'<div class="grid3" id="wpSteer" style="display:none"><label>Inclination to reach (&deg;)<input id="wpSInc" type="number" step="1" value="90"></label><label>Azimuth to reach (&deg;)<input id="wpSAzi" type="number" step="1" value="'+(has?fmt(trajectoryRows().at(-1).Azimuth,0):0)+'"></label><label>Dogleg (&deg;/30 m)<input id="wpSDls" type="number" step="0.5" value="3"></label></div>'
+  +'<div class="actions"><button class="dark" onclick="wpApplyLength()"'+(has?'':' disabled title="Load or build a wellpath first"')+'>Apply change</button></div><p class="note" id="wpMsgLen"></p></div>';
+  let build='<div class="card"><h3>Build a wellpath</h3><p class="note">Plan a well path from the rotary table: vertical to the kick-off point, build, then hold to a target. You can also write your own list of segments.</p>'
+  +'<div class="grid3"><label>Kick-off depth (mMD)<input id="wpKop" type="number" step="50" value="'+p.kop+'"></label><label>Build rate (&deg;/30 m)<input id="wpJDls" type="number" step="0.5" value="'+p.dls+'"></label>'
+  +'<label>Target<select id="wpTgt" onchange="document.getElementById(\'wpTgtMan\').style.display=this.value===\'manual\'||this.value===\'\'?\'\':\'none\'"><option value=""'+(p.tgt===''?' selected':'')+'>Type in the position</option>'+tg.map((t,i)=>'<option value="'+i+'"'+(String(p.tgt)===String(i)?' selected':'')+'>'+esc(t.Name||('Target '+(i+1)))+' ('+wpF0(n(t.TVD))+' mTVD)</option>').join('')+'</select></label></div>'
   +'<div class="grid3" id="wpTgtMan" style="'+(p.tgt===''||p.tgt==='manual'?'':'display:none')+'"><label>Target north (m)<input id="wpTgtNs" type="number" step="10" value="'+(Number.isFinite(p.ns)?p.ns:0)+'"></label><label>Target east (m)<input id="wpTgtEw" type="number" step="10" value="'+(Number.isFinite(p.ew)?p.ew:0)+'"></label><label>Target TVD (m)<input id="wpTgtTvd" type="number" step="10" value="'+(Number.isFinite(p.tvd)?p.tvd:0)+'"></label></div>'
-  +'<div class="grid3"><label>Extra hold beyond target (m)<input id="wpExtra" type="number" step="50" value="'+(p.extra||0)+'"></label></div>'
-  +'<div class="actions"><button class="dark" onclick="wpGenerate()">Solve profile to target</button><button onclick="wpAddSeg()">Add segment</button><button class="dark" onclick="wpApplyBuild()">Apply as wellpath</button></div>'
-  +'<div class="table-wrap" id="wpSegTable"></div>'
-  +'<p class="note" id="wpMsg"></p></div>';
+  +'<div class="grid3"><label>Hold beyond the target (m)<input id="wpExtra" type="number" step="50" value="'+(p.extra||0)+'"></label></div>'
+  +'<div class="actions"><button class="dark" onclick="wpGenerate()">Solve to target</button><button onclick="wpAddSeg()">Add segment</button><button class="dark" onclick="wpApplyBuild()">Use this wellpath</button></div>'
+  +'<div class="table-wrap" id="wpSegTable">'+wpSegTableHtml(p.segs||[])+'</div>'
+  +'<p class="note" style="margin-top:6px">Each segment runs for its length while turning towards the end inclination and azimuth at the dogleg. Leave the inclination or azimuth empty to keep it; a dogleg of 0 is a straight hold.</p><p class="note" id="wpMsgBuild"></p></div>';
+  let files='<div class="card"><h3>History, versions and download</h3><p class="note">Every change is kept. Step back as far as you like, or return to the wellpath you started with.</p>'
+  +'<div class="actions"><button onclick="wpUndo()"'+(hist.length?'':' disabled')+'>Undo'+(hist.length?' ('+hist.length+')':'')+'</button><button onclick="wpRedo()"'+(redo.length?'':' disabled')+'>Redo'+(redo.length?' ('+redo.length+')':'')+'</button><button onclick="wpRevertOriginal()"'+(state.wpOriginal?'':' disabled title="No changes have been made yet"')+'>Back to original wellpath</button></div>'
+  +(hist.length?'<p class="note" style="margin-top:6px"><b>Changes so far:</b> '+hist.map((h,i)=>(i+1)+'. '+esc(h.label)).join(' &nbsp;&middot;&nbsp; ')+'</p>':'<p class="note" style="margin-top:6px">No changes yet: this is the original wellpath.</p>')
+  +'<h3 style="font-size:14px;margin-top:14px">Saved versions</h3>'
+  +'<div class="grid3"><label>Name<input id="wpVerName" placeholder="e.g. 8.5 section +200 m"></label><div style="align-self:end"><button class="dark" onclick="wpSaveVersion()"'+(has?'':' disabled')+'>Save this version</button></div></div>'
+  +(vers.length?'<table><thead><tr><th>Name</th><th>Saved</th><th>TD</th><th></th></tr></thead><tbody>'+vers.map((v,i)=>'<tr><td>'+esc(v.name)+'</td><td>'+esc(v.date)+'</td><td>'+(v.td?wpF0(v.td.md)+' mMD / '+wpF0(v.td.tvd)+' mTVD':'-')+'</td><td><button onclick="wpLoadVersion('+i+')">Load</button> <button onclick="wpDeleteVersion('+i+')">Delete</button></td></tr>').join('')+'</tbody></table>':'<p class="note">No saved versions yet. A saved version keeps the wellpath together with the casing depths, sections and time vs depth rows, and is stored with the well.</p>')
+  +'<h3 style="font-size:14px;margin-top:14px">Download the current wellpath</h3>'
+  +'<div class="actions"><button class="dark" onclick="wpDownloadExcel()"'+(has?'':' disabled')+'>Download Excel</button><button onclick="wpDownloadCsv()"'+(has?'':' disabled')+'>Download CSV</button></div>'
+  +'<p class="note" id="wpMsgFiles"></p></div>';
+  return len+build+files;
 }
-function wpPlannerWire(){let p=wpPlan();if($('wpSegTable'))editTable('wpSegTable',p.segs&&p.segs.length?p.segs:[],['Name','Length','Inc','Azi','DLS'])}
+function wpPlannerWire(){}
 if(!state.timeDepth)state.timeDepth=[];render();</script><button id="cornerSmiley" title="Click for a drilling joke" onclick="newDrillingJoke()">🙂</button><div id="cornerJoke"></div><div id="plotTooltip" class="plot-tooltip"></div></body></html>
