@@ -89,7 +89,9 @@ v2.1
 
 - Change well length: add or remove length at a section TD or any depth (for example drill the last section 200 m longer); the extra length holds or steers, and casing shoes, section depths and time vs depth rows follow
 - Build a wellpath: build-and-hold solved to a target, or any list of segments (length, end inclination / azimuth, dogleg)
-- Minimum curvature, one level of undo
+- Minimum curvature; every change is kept (undo / redo up to 30 steps) and the original wellpath can always be restored
+- Named wellpath versions saved with the well (up to 10), each with its casing depths, sections and time vs depth rows
+- Download the current wellpath as Excel (survey plus a summary sheet) or CSV
 
 ### Time vs Depth
 
